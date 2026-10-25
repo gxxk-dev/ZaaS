@@ -13,7 +13,7 @@ description: "Use for ZhangWen/掌问 project work: selecting and validating Mic
 ~/.claude/skills/zhangwen/scripts/zw status --json
 ```
 
-`status` 必须显示 `ok: true`，并检查：解释器来源、数据目录、目录缓存（255/260 且 `stale` 属正常）、依赖、5 块主控、激光/CAD 模板数。缺依赖按 `references/cli.md` 的启动器顺序处理；不要自行 `pip install` 到掌问仓库的 `.venv`。
+`status` 必须显示 `ok: true`，并检查：掌问版本（`zhangwenVersion`）、解释器来源、数据目录、目录缓存（255/260 且 `stale` 属正常）、依赖、5 块主控、激光/CAD 模板数。缺依赖按 `references/cli.md` 的启动器顺序处理；不要自行 `pip install` 到掌问仓库的 `.venv`。
 
 `ZW_HOME` 默认 `/mnt/dev-cold/zhangwen`；其他安装位置用环境变量覆盖。
 

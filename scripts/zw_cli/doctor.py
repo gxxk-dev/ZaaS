@@ -43,6 +43,22 @@ def _command_version(command: str, args: tuple[str, ...] = ("--version",)) -> di
     return {"path": path, "version": output.splitlines()[0] if output else None}
 
 
+def _release(root) -> dict:
+    """Read the upstream release metadata without writing to the install."""
+    try:
+        payload = json.loads((root / "version.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"version": None, "releaseNotes": []}
+    version = payload.get("version")
+    if not isinstance(version, str):
+        version = None
+    notes = payload.get("releaseNotes")
+    return {
+        "version": version,
+        "releaseNotes": [item for item in notes if isinstance(item, str)] if isinstance(notes, list) else [],
+    }
+
+
 def cmd_status() -> CommandResult:
     root = env.home()
     data_dir = env.data_dir()
@@ -70,7 +86,10 @@ def cmd_status() -> CommandResult:
         "matplotlib": _version("matplotlib"),
     }
     font = root / "resources" / "fonts" / "NotoSansSC.ttf"
+    release = _release(root)
     warnings = []
+    if not release["version"]:
+        warnings.append("未能从 version.json 读取掌问版本；本机可能不是完整安装。")
     if catalog["stale"]:
         warnings.append(
             f"目录缓存 {catalog['count']} 条 / 磁盘 {catalog['scanCount']} 包；搜索以磁盘为准，未自动刷新。"
@@ -88,6 +107,8 @@ def cmd_status() -> CommandResult:
 
     data = {
         "skillVersion": __import__("zw_cli").__version__,
+        "zhangwenVersion": release["version"],
+        "zhangwenReleaseNotes": release["releaseNotes"],
         "zwHome": str(root),
         "dataDir": str(data_dir),
         "python": sys.executable,

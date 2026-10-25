@@ -25,7 +25,7 @@ zw structure template mpython-shell --list-params --json
 ### 模板参数概览
 
 - `mpython-shell`（30 项）：内腔 `inner_size_x/y/height_z`、`wall_thickness`、`bottom_thickness`、`outer_corner_radius`、固定块 `fixing_block_*`、螺丝柱 `screw_boss_*`、上盖 `top_cover_thickness`、屏幕/麦克风/光敏/ LED 开口、上盖螺丝孔与沉孔。
-- `photo-stand`（58 项）：底座、斜面角度/长度/厚度、夹持片、侧块、后斜面块、方孔、半圆止挡及一系列圆角参数。多数 `stage_*` 是建模细节，非必要不改。
+- `photo-stand`（57 项）：底座、斜面角度/长度/厚度、夹持片、侧块、后斜面块、方孔、半圆止挡及一系列圆角参数。多数 `stage_*` 是建模细节，非必要不改。源码另有 6 个含 `epsilon`/`overlap` 的顶层数值，按规则不开放修改。
 - `servo-side`（12 项）：底座、立墙、开口、固定孔。
 - `servo-horizontal`（10 项）：底座、支撑、内侧间隙、侧孔。
 - `servo-vertical`（13 项）：底座、支撑、顶孔、槽宽/槽高。
