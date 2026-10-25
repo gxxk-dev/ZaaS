@@ -1,0 +1,25 @@
+{
+  "schema": "zw.cli/v1",
+  "boards": 5,
+  "laserTemplates": ["finger-box", "panel-box", "plate", "round-tag", "rounded-box"],
+  "cadTemplates": ["mpython-shell", "photo-stand", "servo-horizontal", "servo-side", "servo-vertical"],
+  "dfr0026": {
+    "query": "DFR0026",
+    "board": "k10",
+    "recommended": "dfrobot-dfr0026-k10",
+    "verification": "MIGRATED_UNVERIFIED",
+    "wiringSignal": "AO / S",
+    "wiringLabelPrefix": "P0"
+  },
+  "k10BadCode": {
+    "source": "from unihiker_k10 import screen\nscreen.init(dir=2)\nscreen.text(\"x\", 0, 0)\n",
+    "exit": 4,
+    "diagnostic": "k10-screen"
+  },
+  "laserPlate": {
+    "template": "plate",
+    "params": {"width": 60, "depth": 40, "thickness": 3},
+    "drawing": {"width": 70.0, "height": 50.0, "thickness": 3.0},
+    "files": ["cut.svg", "cut.dxf", "preview.svg", "design.json"]
+  }
+}

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# zw launcher: pick a Python that can import the local ZhangWen install.
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ZW_HOME="${ZW_HOME:-/mnt/dev-cold/zhangwen}"
+
+if [[ ! -d "$ZW_HOME/services/local-api/zhangwen" ]]; then
+  echo "zw: ZW_HOME 不是有效的掌问安装: $ZW_HOME" >&2
+  echo "zw: 设置 ZW_HOME 指向包含 services/local-api/zhangwen 的目录。" >&2
+  exit 5
+fi
+
+python_bin="${ZW_PYTHON:-}"
+python_source="ZW_PYTHON"
+if [[ -z "$python_bin" && -x "$ZW_HOME/.venv/bin/python" ]]; then
+  python_bin="$ZW_HOME/.venv/bin/python"
+  python_source="ZW_HOME/.venv"
+fi
+
+export ZW_HOME
+export ZW_PYTHON_SOURCE="$python_source"
+export PYTHONUTF8=1
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH="$ZW_HOME/services/local-api:$DIR${PYTHONPATH:+:$PYTHONPATH}"
+
+if [[ -n "$python_bin" ]]; then
+  exec "$python_bin" -B -m zw_cli "$@"
+fi
+
+if command -v uv >/dev/null 2>&1; then
+  requirements="$DIR/requirements-core.txt"
+  if [[ "${1:-}" == "structure" ]]; then
+    requirements="$DIR/requirements-cad.txt"
+  fi
+  export ZW_PYTHON_SOURCE="uv"
+  exec uv run --no-project --python 3.13 --with-requirements "$requirements" python -B -m zw_cli "$@"
+fi
+
+echo "zw: 未找到可用 Python。安装 uv，或设置 ZW_PYTHON 指向掌问的 .venv/bin/python。" >&2
+exit 5

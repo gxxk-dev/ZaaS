@@ -1,0 +1,8 @@
+[tools]
+python = "3.13"
+uv = "0.11"
+node = "25"
+
+[env]
+PYTHONUTF8 = "1"
+PYTHONDONTWRITEBYTECODE = "1"
