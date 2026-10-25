@@ -1,4 +1,4 @@
-# zaas — ZhangWen as a Skill
+# ZaaS — ZhangWen as a Skill
 
 把本地掌问 / ZhangWen 安装封装成 Claude Code skill：硬件资料检索、选型、接线、电气校验、MicroPython 检查、激光切割图纸、Python CAD 与固定外壳模板改造。本仓库即 skill 源码；运行时读取用户本机的掌问安装。
 
@@ -7,16 +7,16 @@
 ## 安装
 
 ```bash
-git clone https://github.com/gxxk-dev/zaas ~/zaas
+git clone https://github.com/gxxk-dev/ZaaS ~/ZaaS
 mkdir -p ~/.claude/skills
-ln -s ~/zaas ~/.claude/skills/zhangwen
+ln -s ~/ZaaS ~/.claude/skills/zhangwen
 ```
 
 确保本地掌问安装在（默认）：
 
 ```bash
 export ZW_HOME=/mnt/dev-cold/zhangwen
-~/zaas/scripts/zw status --json
+~/ZaaS/scripts/zw status --json
 ```
 
 `ZW_HOME` 必须包含 `services/local-api/zhangwen/` 和 `.data/hardware-skills/`。没有 `.venv` 时，启动器会用 `uv run --no-project --python 3.13 --with-requirements ...` 建临时环境；CAD 命令需要 CadQuery/OCP。
