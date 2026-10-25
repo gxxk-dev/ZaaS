@@ -156,6 +156,7 @@ def _human(command: str, payload: dict) -> None:
 
     if command in {"status", "doctor"}:
         print(f"ZW_HOME: {data.get('zwHome')}")
+        print(f"掌问版本: {data.get('zhangwenVersion') or 'unknown'}")
         print(f"数据目录: {data.get('dataDir')}")
         print(f"Python: {data.get('python')} ({data.get('pythonSource')})")
         print(f"目录缓存: {data.get('cache', {}).get('count')} / 磁盘 {data.get('cache', {}).get('scanCount')} 包")

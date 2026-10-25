@@ -21,6 +21,8 @@ export ZW_HOME=/mnt/dev-cold/zhangwen
 
 `ZW_HOME` 必须包含 `services/local-api/zhangwen/` 和 `.data/hardware-skills/`。没有 `.venv` 时，启动器会用 `uv run --no-project --python 3.13 --with-requirements ...` 建临时环境；CAD 命令需要 CadQuery/OCP。
 
+当前已在掌问 **V0.4.2026.1021.01**（`2e75546`）上验证。`zw status` 会读取 `$ZW_HOME/version.json` 报告 `zhangwenVersion` 和 release notes；上游升级后先跑 `zw status --json`，再跑 `python3 tests/contracts/check.py` 检查契约。
+
 ## 依赖
 
 - 只读/激光：`scripts/requirements-core.txt`（pydantic、fastapi、httpx、fonttools、PyYAML）。

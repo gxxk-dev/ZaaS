@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -52,6 +53,11 @@ def main() -> int:
         missing = set(EXPECTED[f"{key}Templates"]) - ids
         if missing:
             fail(f"{key} 模板缺失：{sorted(missing)}")
+    version_path = Path(os.environ.get("ZW_HOME", "/mnt/dev-cold/zhangwen")) / "version.json"
+    if version_path.is_file():
+        expected_version = json.loads(version_path.read_text(encoding="utf-8")).get("version")
+        if data.get("zhangwenVersion") != expected_version:
+            fail(f"掌问版本 {data.get('zhangwenVersion')} != {expected_version}")
     print("ok status")
 
     code, payload = run("boards")
