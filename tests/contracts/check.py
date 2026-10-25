@@ -40,6 +40,173 @@ def expect_ok(name: str, payload: dict) -> dict:
     return payload.get("data") or {}
 
 
+def _write_request(directory: Path, name: str, payload: dict) -> Path:
+    path = directory / name
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _error_code(payload: dict) -> str:
+    return (payload.get("error") or {}).get("code")
+
+
+def _check_enclosure(case: dict) -> None:
+    with tempfile.TemporaryDirectory(prefix="zw-enclosure-") as tmp:
+        root = Path(tmp)
+        box_request = _write_request(root, "box.json", case["boxRequest"])
+
+        code, payload = run("enclosure", "plan", "--request", str(box_request))
+        data = expect_ok("enclosure plan", payload)
+        if code != 0:
+            fail(f"enclosure plan exit={code}")
+        if not payload.get("readOnly") or payload.get("writes"):
+            fail(f"enclosure plan 不是只读：{payload.get('writes')}")
+        if data.get("template") != "box_with_lid":
+            fail(f"enclosure plan template={data.get('template')}")
+        if not data.get("validation", {}).get("ok"):
+            fail("enclosure plan validation 未通过")
+        spec = data.get("spec") or {}
+        if len(spec.get("hardware") or []) != 2:
+            fail("enclosure plan hardware 数量不符")
+        enclosure = spec.get("enclosure") or {}
+        for key, minimum in (
+            ("inner_length_x", 30),
+            ("inner_width_y", 30),
+            ("inner_height_z", 12),
+        ):
+            if float(enclosure.get(key, 0)) < minimum:
+                fail(f"enclosure plan {key}={enclosure.get(key)}")
+
+        code, again = run("enclosure", "plan", "--request", str(box_request))
+        again_data = expect_ok("enclosure plan repeat", again)
+        if json.dumps(data.get("spec"), sort_keys=True) != json.dumps(again_data.get("spec"), sort_keys=True):
+            fail("enclosure plan 两次 spec 不一致")
+        print("ok enclosure plan")
+
+        needs = _write_request(
+            root,
+            "needs.json",
+            {"components": [{"component_id": case["needsInputComponent"]}]},
+        )
+        code, payload = run("enclosure", "plan", "--request", str(needs))
+        if code != 4 or _error_code(payload) != "NEEDS_INPUT":
+            fail(f"enclosure NEEDS_INPUT 负例不符：exit={code} code={_error_code(payload)}")
+        questions = (payload.get("error", {}).get("details") or {}).get("questions") or []
+        if not questions:
+            fail("enclosure NEEDS_INPUT 没有 questions")
+        print("ok enclosure needs input")
+
+        conflict = _write_request(root, "k10-conflict.json", case["k10ConflictRequest"])
+        code, payload = run("enclosure", "plan", "--request", str(conflict))
+        if code != 4 or _error_code(payload) != "MOUNT_CONFLICT":
+            fail(f"enclosure MOUNT_CONFLICT 负例不符：exit={code} code={_error_code(payload)}")
+        print("ok enclosure mount conflict")
+
+        derived = _write_request(root, "k10-derived.json", case["k10DerivedRequest"])
+        code, payload = run("enclosure", "plan", "--request", str(derived))
+        data = expect_ok("enclosure derive", payload)
+        if code != 0:
+            fail(f"enclosure derive exit={code}")
+        provenance = data.get("provenance") or []
+        if not provenance or provenance[0].get("source") != "derived":
+            fail(f"enclosure derive provenance={provenance}")
+        profile_ids = [item.get("profile_id") for item in (data.get("spec") or {}).get("profiles", [])]
+        if not any(str(name).startswith("unihiker_k10_derived_") for name in profile_ids):
+            fail(f"enclosure derive profile_ids={profile_ids}")
+        if not any("派生" in item for item in payload.get("warnings") or []):
+            fail("enclosure derive 缺少派生 warning")
+        print("ok enclosure derive mount")
+
+        mount = _write_request(root, "mount.json", case["componentMountRequest"])
+        code, payload = run("enclosure", "plan", "--request", str(mount))
+        data = expect_ok("enclosure component_mount", payload)
+        if code != 0 or data.get("template") != "component_mount":
+            fail(f"enclosure component_mount 模板不符：exit={code}")
+        hardware = (data.get("layout") or {}).get("hardware") or []
+        if len(hardware) != 1 or hardware[0].get("surface") != "external":
+            fail(f"enclosure component_mount hardware={hardware}")
+        center_z = float((hardware[0].get("center") or {}).get("z", 0))
+        if abs(center_z - case["componentMountCenterZ"]) > 1e-6:
+            fail(f"enclosure component_mount center.z={center_z}")
+        if not data.get("validation", {}).get("ok"):
+            fail("enclosure component_mount validation 未通过")
+        print("ok enclosure component_mount")
+
+        two = {"template": "component_mount", "components": [
+            {"profile_id": "xiao_esp32s3"},
+            {"profile_id": "grove_button"},
+        ]}
+        path = _write_request(root, "mount-two.json", two)
+        code, payload = run("enclosure", "plan", "--request", str(path))
+        if code != 2 or _error_code(payload) != "REQUEST_INVALID":
+            fail(f"enclosure component_mount 双器件负例不符：exit={code} code={_error_code(payload)}")
+
+        standoff = {"template": "component_mount", "components": [{"profile_id": "xiao_esp32s3"}], "standoffs": [
+            {"standoff_id": "post", "center": {"x": 0, "y": 0},
+             "outer_diameter": 5, "bore_diameter": 2, "height": 4},
+        ]}
+        path = _write_request(root, "mount-standoff.json", standoff)
+        code, payload = run("enclosure", "plan", "--request", str(path))
+        if code != 2 or _error_code(payload) != "REQUEST_INVALID":
+            fail(f"enclosure component_mount standoff 负例不符：exit={code}")
+        print("ok enclosure template negatives")
+
+        left = _write_request(root, "left.json", case["leftNeedsCenterRequest"])
+        code, payload = run("enclosure", "plan", "--request", str(left))
+        if code != 4 or _error_code(payload) != "NEEDS_INPUT":
+            fail(f"enclosure left 负例不符：exit={code} code={_error_code(payload)}")
+        questions = (payload.get("error", {}).get("details") or {}).get("questions") or []
+        if not any(item.get("field") == "center" for item in questions):
+            fail(f"enclosure left questions={questions}")
+        print("ok enclosure left center")
+
+        bad_spec = _write_request(root, "bad-spec.json", case["invalidSpec"])
+        bad_out = root / "bad-spec-out"
+        code, payload = run(
+            "enclosure", "build", "--spec", str(bad_spec), "--out", str(bad_out),
+        )
+        if code != 2 or _error_code(payload) != "SPEC_INVALID":
+            fail(f"enclosure SPEC_INVALID 负例不符：exit={code} code={_error_code(payload)}")
+        if bad_out.exists():
+            fail("enclosure 无效 spec 创建了输出目录")
+        print("ok enclosure spec negative")
+
+        nonempty = root / "nonempty"
+        nonempty.mkdir()
+        (nonempty / "keep.txt").write_text("keep", encoding="utf-8")
+        code, payload = run(
+            "enclosure", "build", "--request", str(box_request), "--out", str(nonempty),
+        )
+        if code != 6 or _error_code(payload) != "OUT_NOT_EMPTY":
+            fail(f"enclosure OUT_NOT_EMPTY 负例不符：exit={code} code={_error_code(payload)}")
+        if not (nonempty / "keep.txt").is_file():
+            fail("enclosure 非空目录负例改动了原文件")
+        print("ok enclosure out boundary")
+
+        if os.environ.get("ZW_CONTRACT_CAD") == "1":
+            out = root / "cad-out"
+            code, payload = run(
+                "enclosure", "build", "--request", str(box_request), "--out", str(out),
+            )
+            data = expect_ok("enclosure build", payload)
+            if code != 0:
+                fail(f"enclosure build exit={code}")
+            for name in case["cadBuildFiles"]:
+                if not (out / name).is_file():
+                    fail(f"enclosure build 缺少 {name}")
+            first_sha = data.get("specSha256")
+            second_out = root / "cad-out-2"
+            code, payload = run(
+                "enclosure", "build", "--spec", str(out / "spec.json"), "--out", str(second_out),
+            )
+            data = expect_ok("enclosure rebuild", payload)
+            if code != 0 or data.get("specSha256") != first_sha:
+                fail(f"enclosure rebuild sha 不一致：{first_sha} != {data.get('specSha256')}")
+            print("ok enclosure cad build")
+        else:
+            print("skip enclosure cad build (ZW_CONTRACT_CAD!=1)")
+
+
 def main() -> int:
     code, payload = run("status")
     data = expect_ok("status", payload)
@@ -141,6 +308,8 @@ def main() -> int:
         if bad_out.exists():
             fail("laser 负例创建了输出目录")
         print("ok laser negative")
+
+    _check_enclosure(EXPECTED["enclosure"])
 
     print("all contract checks passed")
     return 0

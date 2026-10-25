@@ -105,6 +105,19 @@ def _parser() -> argparse.ArgumentParser:
     solid.add_argument("--force", action="store_true")
     solid.add_argument("--allow-in-repo", action="store_true")
     solid.set_defaults(func=_structure_solid, command="structure solid")
+
+    enclosure = groups.add_parser("enclosure", help="确定性外壳管线")
+    enclosure_sub = enclosure.add_subparsers(dest="enclosure_command", required=True)
+    enc_plan = enclosure_sub.add_parser("plan", parents=[common], help="解析请求并规划（只读）")
+    enc_plan.add_argument("--request", required=True, help="请求 JSON 文件，或 -")
+    enc_plan.set_defaults(func=_enclosure_plan, command="enclosure plan")
+
+    enc_build = enclosure_sub.add_parser("build", parents=[common], help="生成 STEP/STL/GLB")
+    enc_source = enc_build.add_mutually_exclusive_group(required=True)
+    enc_source.add_argument("--request", help="请求 JSON 文件，或 -")
+    enc_source.add_argument("--spec", help="CadBuildSpec JSON 文件，或 -")
+    enc_build.add_argument("--out", required=True)
+    enc_build.set_defaults(func=_enclosure_build, command="enclosure build")
     return parser
 
 
@@ -144,6 +157,22 @@ def _structure_solid(args) -> CommandResult:
     )
 
 
+def _enclosure_plan(args) -> CommandResult:
+    from . import enclosure
+
+    return enclosure.cmd_plan(args.request)
+
+
+def _enclosure_build(args) -> CommandResult:
+    from . import enclosure
+
+    return enclosure.cmd_build(
+        request_value=args.request,
+        spec_value=args.spec,
+        out_value=args.out,
+    )
+
+
 def _human(command: str, payload: dict) -> None:
     if not payload.get("ok"):
         error = payload.get("error", {})
@@ -160,7 +189,10 @@ def _human(command: str, payload: dict) -> None:
         print(f"数据目录: {data.get('dataDir')}")
         print(f"Python: {data.get('python')} ({data.get('pythonSource')})")
         print(f"目录缓存: {data.get('cache', {}).get('count')} / 磁盘 {data.get('cache', {}).get('scanCount')} 包")
-        print("依赖: " + ", ".join(f"{name}={item.get('version') or 'missing'}" for name, item in (data.get("deps") or {}).items()))
+        print("依赖: " + ", ".join(
+            f"{name}={item.get('version') or ('ok' if item.get('installed') else 'missing')}"
+            for name, item in (data.get("deps") or {}).items()
+        ))
         print(f"主控: {len(data.get('boards') or [])}  激光模板: {len(data.get('templates', {}).get('laser') or [])}  3D 模板: {len(data.get('templates', {}).get('cad') or [])}")
     elif command == "boards":
         for item in data.get("boards", []):
@@ -216,6 +248,8 @@ def _human(command: str, payload: dict) -> None:
         print("部件:")
         for item in data.get("parts", []):
             print(f"  {item['id']}  {item['label']}  printable={item['printable']}")
+    elif command in {"enclosure plan", "enclosure build"}:
+        _human_enclosure(command, data, payload)
     else:
         title = data.get("title") or data.get("template", {}).get("title") or command
         print(str(title))
@@ -223,6 +257,50 @@ def _human(command: str, payload: dict) -> None:
             print(f"  {path}")
     for warning in warnings:
         print(f"警告: {warning}", file=sys.stderr)
+
+
+def _human_enclosure(command: str, data: dict, payload: dict) -> None:
+    print(f"{data.get('template')}  {data.get('design_id')}")
+    spec = data.get("spec") or {}
+    enclosure = spec.get("enclosure") or {}
+    if enclosure:
+        print(
+            "内腔: "
+            f"{enclosure.get('inner_length_x')} × {enclosure.get('inner_width_y')} × "
+            f"{enclosure.get('inner_height_z')} mm"
+        )
+    component_mount = spec.get("component_mount") or {}
+    if component_mount:
+        print(
+            "底座: "
+            f"base_thickness={component_mount.get('base_thickness')} "
+            f"edge_margin={component_mount.get('edge_margin')}"
+        )
+    auto = data.get("autoSize")
+    if auto:
+        final = auto.get("final") or {}
+        print(
+            "自动尺寸: "
+            f"enabled={auto.get('enabled')} applied={auto.get('applied')} "
+            f"iterations={auto.get('iterations')} "
+            f"final={final.get('length')}×{final.get('width')}×{final.get('height')}"
+        )
+    for item in data.get("provenance") or []:
+        print(
+            f"  {item.get('instance_id')} → {item.get('profile_id')} "
+            f"[{item.get('source')}] {item.get('surface')}"
+        )
+    validation = data.get("validation") or {}
+    failing = [
+        item.get("check_id")
+        for item in validation.get("checks", [])
+        if str(item.get("status")) == "fail"
+    ]
+    print(f"校验: {'PASS' if validation.get('ok') else 'FAIL'}" + (f" ({', '.join(failing)})" if failing else ""))
+    if command == "enclosure build":
+        print(f"输出: {data.get('out')}")
+        for name in data.get("files") or []:
+            print(f"  {name}")
 
 
 def main(argv: list[str] | None = None) -> int:

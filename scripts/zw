@@ -32,6 +32,8 @@ if command -v uv >/dev/null 2>&1; then
   requirements="$DIR/requirements-core.txt"
   if [[ "${1:-}" == "structure" ]]; then
     requirements="$DIR/requirements-cad.txt"
+  elif [[ "${1:-}" == "enclosure" && "${2:-}" == "build" ]]; then
+    requirements="$DIR/requirements-cad.txt"
   fi
   export ZW_PYTHON_SOURCE="uv"
   exec uv run --no-project --python 3.13 --with-requirements "$requirements" python -B -m zw_cli "$@"

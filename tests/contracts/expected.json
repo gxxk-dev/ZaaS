@@ -21,5 +21,44 @@
     "params": {"width": 60, "depth": 40, "thickness": 3},
     "drawing": {"width": 70.0, "height": 50.0, "thickness": 3.0},
     "files": ["cut.svg", "cut.dxf", "preview.svg", "design.json"]
+  },
+  "enclosure": {
+    "boxRequest": {
+      "design_id": "contract_box",
+      "components": [
+        {"profile_id": "xiao_esp32s3", "surface": "base_floor"},
+        {"profile_id": "grove_oled_096", "surface": "lid_inner"}
+      ],
+      "auto_size": true
+    },
+    "componentMountRequest": {
+      "design_id": "contract_mount",
+      "template": "component_mount",
+      "components": [{"profile_id": "xiao_esp32s3"}]
+    },
+    "componentMountCenterZ": 5.4,
+    "needsInputComponent": "hw_dfrobot_dfr0026_k10",
+    "k10ConflictRequest": {
+      "design_id": "contract_k10_conflict",
+      "components": [{"profile_id": "unihiker_k10", "surface": "lid_inner"}]
+    },
+    "k10DerivedRequest": {
+      "design_id": "contract_k10_derived",
+      "components": [
+        {"profile_id": "unihiker_k10", "surface": "lid_inner", "derive_mount": true}
+      ]
+    },
+    "leftNeedsCenterRequest": {
+      "design_id": "contract_left",
+      "components": [
+        {"profile_id": "unihiker_ultrasonic_distance_sensor", "surface": "left_inner"}
+      ]
+    },
+    "invalidSpec": {"design_id": "contract_bad_spec", "template": "freeform_structure"},
+    "cadBuildFiles": [
+      "assembly.step", "base.step", "base.stl", "geometry-summary.json",
+      "lid.step", "lid.stl", "manifest.json", "parameters.json", "preview.glb",
+      "profiles.json", "spec.json", "validation.json"
+    ]
   }
 }

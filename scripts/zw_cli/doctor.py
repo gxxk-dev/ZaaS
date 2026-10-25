@@ -26,6 +26,14 @@ def _version(distribution: str, module: str | None = None) -> dict:
     return {"installed": installed, "version": version}
 
 
+def _module(path: str) -> dict:
+    try:
+        installed = importlib.util.find_spec(path) is not None
+    except (ImportError, ValueError):
+        installed = False
+    return {"installed": installed, "version": None}
+
+
 def _command_version(command: str, args: tuple[str, ...] = ("--version",)) -> dict:
     path = shutil.which(command)
     if not path:
@@ -84,6 +92,7 @@ def cmd_status() -> CommandResult:
         "cadquery-ocp": _version("cadquery-ocp"),
         "numpy": _version("numpy"),
         "matplotlib": _version("matplotlib"),
+        "cad_engine": _module("zhangwen.cad_engine"),
     }
     font = root / "resources" / "fonts" / "NotoSansSC.ttf"
     release = _release(root)
@@ -95,7 +104,9 @@ def cmd_status() -> CommandResult:
             f"目录缓存 {catalog['count']} 条 / 磁盘 {catalog['scanCount']} 包；搜索以磁盘为准，未自动刷新。"
         )
     if not deps["cadquery"]["installed"]:
-        warnings.append("未安装 CadQuery；structure 子命令不可用。")
+        warnings.append("未安装 CadQuery；structure 和 enclosure build 不可用。")
+    if not deps["cad_engine"]["installed"]:
+        warnings.append("缺少 zhangwen.cad_engine；需要掌问 V0.4.2026.1021.01 或更新版本，enclosure 不可用。")
     if not deps["fontTools"]["installed"]:
         warnings.append("未安装 fontTools；激光文字和模板刻字不可用。")
     if not font.is_file():

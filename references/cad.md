@@ -2,6 +2,8 @@
 
 `zw structure` 有两类输入：**固定模板**（可参数化、可受约束改造）和**参数化实体**（box/cylinder/sphere 的加料/挖料）。两者都只输出名义几何，不做打印公差、材料收缩或强度校验。
 
+由已选硬件自动生成“带开孔、上盖和螺丝柱的封闭盒子”，或单器件安装座，用 `zw enclosure`（见 `references/enclosure.md`），不要用 `structure solid` 手拼。`structure solid` 保留给没有机械 profile 的自定义 CSG。
+
 ## 固定模板
 
 5 个模板来自掌问 `services/structure-cad/templates/manifest.json`，源码用 sha256 锚定。模板升级后 `revision`/`sha256` 变化会让 `--edit` 明确失败；此时重新跑 `--list-params` 并同步本文档。

@@ -1,6 +1,6 @@
 ---
 name: zhangwen
-description: "Use for ZhangWen/掌问 project work: selecting and validating MicroPython hardware from its local 260-package library, rendering board-specific wiring and module guides for 掌控板 2.0/3.0, 行空板 K10, XIAO ESP32S3 Sense and ESP32-C3, checking generated MicroPython, and producing laser-cut drawings (SVG/DXF) or Python-side CAD models (STL/STEP), including bounded edits of packaged 3D shell templates, through a local ZhangWen install. 适用于掌问项目内的硬件选型、接线、模块资料、代码检查、激光切割与 3D 建模/外壳改造；独立 HandPy/mPython 板级开发用 handpy skill，串口上传/刷机用 pyrcli。"
+description: "Use for ZhangWen/掌问 project work: selecting and validating MicroPython hardware from its local 260-package library, rendering board-specific wiring and module guides for 掌控板 2.0/3.0, 行空板 K10, XIAO ESP32S3 Sense and ESP32-C3, checking generated MicroPython, and producing laser-cut drawings (SVG/DXF) or Python-side CAD models (STL/STEP), including bounded edits of packaged 3D shell templates and deterministic hardware-driven enclosures with openings, lids and standoffs, through a local ZhangWen install. 适用于掌问项目内的硬件选型、接线、模块资料、代码检查、激光切割、3D 建模/外壳改造与自动外壳管线；独立 HandPy/mPython 板级开发用 handpy skill，串口上传/刷机用 pyrcli。"
 ---
 
 # 掌问（ZhangWen）
@@ -25,6 +25,7 @@ description: "Use for ZhangWen/掌问 project work: selecting and validating Mic
    - 生成或检查 MicroPython → `references/code.md` + `references/boards.md`。
    - 激光切割 → `references/laser.md`。
    - 3D 固定模板/改造/参数化实体 → `references/cad.md`。
+   - 由已选硬件自动生成外壳/安装座 → `references/enclosure.md`。
    - 上板、串口、刷机 → `references/device.md`。
 3. 只读需要的 reference；不要一次加载全部。
 
@@ -82,6 +83,21 @@ zw structure solid --spec spec.json --out ./solid-out --json
 
 `--edit` 的 `TemplateEditSpec` 只允许改 `--list-params` 中的顶层数值 + 对 printable 部件做受控布尔/刻字。模型不生成 Python，CLI 不执行模型文本。坐标是原模板装配坐标；刻字深度必须小于板厚。
 
+### 5. 自动外壳（`enclosure`）
+
+```bash
+# 只读规划：解析组件、自动尺寸、布局与校验
+zw enclosure plan --request request.json --json
+
+# 构建全套产物（需要 CadQuery/OCP）
+zw enclosure build --request request.json --out ./enclosure-out --json
+
+# 用户确认/微调后，从最终 spec 回建
+zw enclosure build --spec ./enclosure-out/spec.json --out ./enclosure-out-2 --json
+```
+
+请求里每个组件提供 `profile_id`、`component_id` 或 inline `profile`；`component_id` 没有 `mechanicalProfile` 时 exit 4 `NEEDS_INPUT`，必须向用户提问，不能猜尺寸。K10 默认只能 external；放腔内必须显式 `derive_mount: true` 并声明这是包装层推断。`--out` 必须为空或不存在，没有 `--force`。
+
 ## 硬规则
 
 1. `voltage=0` / `peakCurrent=0` 表示**未知**，不是 0V/0A。
@@ -91,13 +107,15 @@ zw structure solid --spec spec.json --out ./solid-out --json
 5. 行空板 K10：屏幕只用 `unihiker_k10.screen` 的 `init(dir=2)` → `draw_text` → `show_draw()` 流程；禁止 `screen.text()`、`framebuf`、M10 `pinpong`。
 6. 掌控板 3.0：用 `mpython.display`/`lcd` 彩屏接口，不照搬 2.0 的 `oled`；没有 Board Skill，API 未确认时标“待确认”。
 7. 生成的代码不硬编码 Wi-Fi 密码/Token/API Key；用占位符并提示用户填写。
-8. 激光/CAD 产物必须声明“名义尺寸，未做刀缝补偿/打印公差/实物装配验证”。
+8. 激光/CAD/外壳产物必须声明“名义尺寸，未做刀缝补偿/打印公差/实物装配验证”。
 9. 改固定模板优先 `--edit`，保留原模板孔位与装配关系；不要用 `structure solid` 重画来绕过不可改的参数。
 10. 只写 `--out`；默认拒绝非空目录，拒绝写入 `$ZW_HOME`（除非用户明确 `--allow-in-repo`）。绝不刷新掌问缓存、迁移数据或调用任何 `install_*`/`update_*`/`save_*`。
+11. `enclosure` 缺机械数据时只提问（`NEEDS_INPUT`），不把电气参数当机械尺寸，不猜孔位/厚度。`derive_mount` 是包装层推断，必须转述“待实物验证”。
+12. `enclosure build --out` 必须为空或不存在；没有 `--force`，不要改成覆盖模式。
 
 ## 与 handpy / pyrcli 的分工
 
-- **zhangwen**：掌问资料库、选型、接线、电气校验、代码检查、激光、Python CAD、固定外壳模板改造。
+- **zhangwen**：掌问资料库、选型、接线、电气校验、代码检查、激光、Python CAD、固定外壳模板改造、自动外壳管线。
 - **handpy**：独立 HandPy/mPython 板级 API 知识、屏幕/按键/内置传感器、`handpy-tool`。
 - **pyrcli**：设备扫描、上传、运行、复位、刷固件。两个 skill 共用，不在掌问里重写。
 - 用户只做通用 ESP32 或非掌问硬件时，不要强行套掌问资料包。
@@ -114,6 +132,6 @@ zw structure solid --spec spec.json --out ./solid-out --json
 
 - `zw` 报 `DEPENDENCY_MISSING` → `zw status --json` 看缺哪个；按 `cli.md` 的解释器顺序处理。
 - `exit 3` → 标识符不对；先 `hardware search` 或 `boards --json`。
-- `exit 4` → 校验 FAIL、`questions` 非空或几何无效；不要绕过，先修输入。
-- `exit 6` → 输出目录非空或位于 `ZW_HOME`；换目录或显式 `--force`/`--allow-in-repo`。
+- `exit 4` → 校验 FAIL、`questions` 非空、`MOUNT_CONFLICT` 或几何无效；不要绕过，先修输入。`NEEDS_INPUT` 时按 `questions` 向用户要机械尺寸。
+- `exit 6` → 输出目录非空或位于 `ZW_HOME`；换目录或显式 `--force`/`--allow-in-repo`（`enclosure build` 不支持 `--force`，只能换空目录）。
 - `exit 7` → 模板 sha256/上游数据/子进程问题；设 `ZW_DEBUG=1` 看堆栈，不要改掌问文件。

@@ -1,6 +1,6 @@
 # ZaaS — ZhangWen as a Skill
 
-把本地掌问 / ZhangWen 安装封装成 Claude Code skill：硬件资料检索、选型、接线、电气校验、MicroPython 检查、激光切割图纸、Python CAD 与固定外壳模板改造。本仓库即 skill 源码；运行时读取用户本机的掌问安装。
+把本地掌问 / ZhangWen 安装封装成 Claude Code skill：硬件资料检索、选型、接线、电气校验、MicroPython 检查、激光切割图纸、Python CAD、固定外壳模板改造，以及由已选硬件确定性生成带开孔/上盖/螺丝柱的外壳与单器件安装座。本仓库即 skill 源码；运行时读取用户本机的掌问安装。
 
 **非官方**：本项目不是掌问官方发行物，与掌问项目无隶属关系。运行时读取用户本机的掌问安装，不复制、不捆绑其硬件包、图片、固件、字体或 CAD 模板。
 
@@ -46,6 +46,9 @@ zw laser build --template ID --params JSON --out DIR --json
 zw structure template <id> [--edit plan.json] --out DIR --json
 zw structure template <id> --list-params --json
 zw structure solid --spec spec.json --out DIR --json
+zw enclosure plan  --request FILE|- --json
+zw enclosure build --request FILE|- --out DIR --json
+zw enclosure build --spec FILE|-   --out DIR --json
 ```
 
 完整契约见 `references/cli.md`。
@@ -54,7 +57,8 @@ zw structure solid --spec spec.json --out DIR --json
 
 - 只读掌问数据；除 `--out` 外不写盘。
 - 不启动 FastAPI、不调用模型 API、不刷新目录缓存、不迁移 SQLite。
-- v1 不调用 Node 自动外壳管线；只做 5 个固定模板与参数化实体。
+- v1 不调用 Node 自动外壳管线；外壳由 Python 的 `zhangwen.cad_engine` 确定性生成。
+- `enclosure` 缺机械数据时返回 `NEEDS_INPUT` 提问，不猜尺寸；`build --out` 必须为空或不存在，没有 `--force`。
 - 设备 I/O 交给 `pyrcli`；不在本 skill 内实现串口协议。
 - 激光/CAD 输出为名义几何，不含刀缝补偿、打印公差或实物验证。
 
@@ -68,6 +72,7 @@ references/hardware.md  资料包字段与指南
 references/code.md      MicroPython 约定与检查
 references/laser.md     5 类激光模板
 references/cad.md       固定模板、改造、参数化实体
+references/enclosure.md 自动外壳请求、profile、尺寸与产物
 references/device.md    pyrcli 命令与分工
 scripts/zw              bash 启动器
 scripts/zw_cli/         确定性 CLI

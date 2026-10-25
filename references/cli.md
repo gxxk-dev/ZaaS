@@ -13,7 +13,7 @@
 
 启动器按顺序选解释器：`ZW_PYTHON` → `$ZW_HOME/.venv/bin/python` → `uv run --no-project --python 3.13 --with-requirements ...`。都没有则 exit 5。
 
-所有命令默认只读。只有 `laser build`、`structure template`、`structure solid` 会写盘，且只写 `--out`。
+所有命令默认只读。只有 `laser build`、`structure template`、`structure solid`、`enclosure build` 会写盘，且只写 `--out`。
 
 ## JSON 信封
 
@@ -70,6 +70,7 @@ zw hardware get <componentId|skillName|显示名> [--full] [--file PATH] --json
 zw hardware guide <componentId> --board B [--set key=value ...] --json
 zw hardware validate <board> <componentId...> --json
 zw code check --board B --file main.py [--component ID ...] --json
+zw enclosure plan --request FILE|- --json
 ```
 
 - `status` 额外报告 `zhangwenVersion` 与 `zhangwenReleaseNotes`，来自 `$ZW_HOME/version.json`；读不到版本会给出 warning。当前 ZaaS 已在 `V0.4.2026.1021.01` 上验证。
@@ -77,6 +78,7 @@ zw code check --board B --file main.py [--component ID ...] --json
 - `hardware guide` 的 `--set` 只接受该指南 `fields` 中出现的 key 和 value；不接受未知引脚。
 - `hardware validate` 必须显式列模块；CLI 会自动加入主控 MCU 组件。没有主控时上游只给 WARNING。
 - `code check --component` 额外做电气规则校验；省略时只做语法和板级 API 检查。
+- `enclosure plan` 只读、无 CadQuery 依赖；缺机械数据时 exit 4 `NEEDS_INPUT`，见 `enclosure.md`。
 
 ## 产出命令
 
@@ -87,15 +89,20 @@ zw laser build --template <plate|round-tag|panel-box|finger-box|rounded-box> \
 zw structure template <id> [--edit plan.json] --out DIR [--json]
 zw structure template <id> --list-params --json
 zw structure solid --spec spec.json --out DIR [--json]
+
+zw enclosure build --request FILE|- --out DIR [--json]
+zw enclosure build --spec FILE|-   --out DIR [--json]
 ```
 
 - `--params` 可写内联 JSON 或 `@file.json`。
 - `--edit` / `--spec` 接受文件路径或 `-`（stdin）。
 - `--out` 默认拒绝非空目录；加 `--force` 才覆盖同名文件。
 - `--out` 位于 `$ZW_HOME` 内时默认拒绝；只有显式 `--allow-in-repo` 才允许。
+- `enclosure build` 例外：`--out` 必须为空或不存在，**没有 `--force`/`--allow-in-repo`**。
 - `--list-params` 只读，不写盘，输出该固定模板的全部顶层数值参数和部件。
 - `structure template` 会写 `template-<part>.step/.stl`、`cadquery.py`、`template-edit.json`。
 - `structure solid` 会写 `model.step`、`model.stl`、`design-spec.json`、`cadquery.py`。
+- `enclosure build` 会写 `assembly.step`、`base/lid.step/.stl`、`preview.glb`、`parameters.json`、`profiles.json`、`validation.json`、`geometry-summary.json`、`manifest.json`、`spec.json`。
 
 ## 边界
 
@@ -104,4 +111,5 @@ zw structure solid --spec spec.json --out DIR [--json]
 - 不调用 `list_skills`、`render_context`、`list_active_context_candidates`、`refresh_active_catalog`、任何 `install_*`/`update_*`/`save_*`/`migrate_*`。
 - 目录缓存只读；缓存 255 条 vs 磁盘 260 包时只报告 `stale=true`，绝不刷新。
 - v1 不调用 Node；`services/structure-cad/worker.mjs` 的自动外壳管线不在 CLI 内。
+- `enclosure` 只调用 Python 的 `zhangwen.cad_engine`；不启动 FastAPI，不调用模型 API，不写 `$ZW_HOME`。
 - 设备 I/O 不在 `zw` 内；见 `device.md` 的 `pyrcli` 命令。

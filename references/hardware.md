@@ -88,5 +88,7 @@
 ## 机械与媒体
 
 - `mechanical` 来自 `references/mechanical.md`：尺寸、孔位、安装方式。`SOURCE_VERIFIED_WITH_MECHANICAL_CONFLICT` 表示来源之间有冲突，不能当作确定尺寸。
+- **覆盖率很低**：260 个包中只有 5 个有 `references/mechanical.md`（K10、DFR0026、SEN0388、RDK-X5、LabPlus ESP32S3），其中只有 K10 包实际给出结构化 `mechanicalProfile`。`zw enclosure` 需要完整 profile；缺数据时返回 exit 4 `NEEDS_INPUT`，必须让用户补尺寸或提供 inline profile，**不要猜**。
+- `zw enclosure` 可直接使用 5 个 trusted profile（`unihiker_k10`、`unihiker_ultrasonic_distance_sensor`、`xiao_esp32s3`、`grove_oled_096`、`grove_button`），不需要资料包里有机械档案。详见 `references/enclosure.md`。
 - `media` 给 `localPath`（文件存在时）；只引用路径，不复制、不打包。
 - 可选 `models/cadquery.py` 是包内 CAD 模型；先用 `hardware get --file models/cadquery.py` 查看，不要直接执行未审阅的第三方代码。
