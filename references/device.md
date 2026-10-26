@@ -51,7 +51,15 @@ pyrcli board remove k10
 $ZW_HOME/resources/firmware/
 ```
 
-版本、偏移、sha256、大小以 `$ZW_HOME/resources/firmware/manifest.json` 为准；`zw boards --json` 只报告 `firmwareInstalled` 和元数据，不下载、不校验、不刷写。
+版本、偏移、sha256、大小以 `$ZW_HOME/resources/firmware/manifest.json` 为准。只读查看与本地校验：
+
+```bash
+zw firmware list [--board B] --json
+zw firmware get k10 --json
+zw firmware verify k10 --file "$ZW_HOME/resources/firmware/k10-download.bin" --json
+```
+
+`verify` 只计算本地文件大小和 SHA-256，与 manifest 固定值比对；退出 0 只表示文件与固定镜像一致，不代表已刷写或设备可启动。它不下载、不刷写、不访问设备。`zw boards --json` 只报告 `firmwareInstalled` 和元数据，不校验、不刷写。
 
 `pyrcli firmware flash <port>` 是 **Pyrite 项目的构建产物刷写器**：它读取项目里的 `flash_layout.json`，用 esptool 按布局写入。`--image` 只能替换镜像路径，布局仍来自 `flash_layout.json`。因此：
 

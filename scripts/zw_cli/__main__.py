@@ -8,7 +8,7 @@ import os
 import sys
 import traceback
 
-from . import code, doctor, env, hardware
+from . import code, doctor, env, firmware, hardware
 from .envelope import CommandResult, ZwError, failure, ok, print_json
 
 
@@ -66,6 +66,25 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("board")
     validate.add_argument("components", nargs="*")
     validate.set_defaults(func=lambda a: hardware.cmd_validate(a.board, a.components), command="hardware validate")
+
+    fw = groups.add_parser("firmware", help="固件目录与本地镜像校验")
+    fw_sub = fw.add_subparsers(dest="firmware_command", required=True)
+
+    fw_list = fw_sub.add_parser("list", parents=[common], help="列出主控固件元数据")
+    fw_list.add_argument("--board", help="只列指定主控")
+    fw_list.set_defaults(func=lambda a: firmware.cmd_list(board=a.board), command="firmware list")
+
+    fw_get = fw_sub.add_parser("get", parents=[common], help="读取主控固件详情")
+    fw_get.add_argument("board_id", help="主控别名、显示名或 componentId")
+    fw_get.set_defaults(func=lambda a: firmware.cmd_get(a.board_id), command="firmware get")
+
+    fw_verify = fw_sub.add_parser("verify", parents=[common], help="只读校验本地固件镜像")
+    fw_verify.add_argument("board_id", help="主控别名、显示名或 componentId")
+    fw_verify.add_argument("--file", required=True, help="本地固件文件")
+    fw_verify.set_defaults(
+        func=lambda a: firmware.cmd_verify(a.board_id, file=a.file),
+        command="firmware verify",
+    )
 
     coding = groups.add_parser("code", help="MicroPython 检查")
     code_sub = coding.add_subparsers(dest="code_command", required=True)
@@ -232,6 +251,32 @@ def _human(command: str, payload: dict) -> None:
         print(f"{data.get('overall')}: {data.get('message')}")
         for item in data.get("checks", []):
             print(f"  [{item['severity']}] {item['dimension']}: {item['message']}")
+    elif command == "firmware list":
+        print(f"固件 {data.get('count', 0)} 条")
+        for item in data.get("firmware", []):
+            image = item.get("image") or {}
+            state = "已安装" if item.get("installed") else ("镜像不可用" if item.get("unavailable") else "未下载")
+            print(
+                f"{item.get('boardId'):<36} {item.get('chip') or '-':<8} "
+                f"offset={item.get('offset')} {state}  {image.get('version') or ''}".rstrip()
+            )
+    elif command == "firmware get":
+        board = data.get("board") or {}
+        profile = data.get("profile") or {}
+        print(f"{board.get('displayName')} ({board.get('componentId')})")
+        print(f"chip: {profile.get('chip') or '-'}  offset: {profile.get('offset')}")
+        print(f"documentation: {profile.get('documentation') or '-'}")
+        image = profile.get("image")
+        if image:
+            print(f"image: {image.get('name')}  {image.get('version')}  {image.get('size')} bytes")
+            print(f"sha256: {image.get('sha256')}")
+            print(f"installed: {(board.get('firmware') or {}).get('installed')}  path: {(board.get('firmware') or {}).get('localPath')}")
+        else:
+            print(f"unavailable: {profile.get('unavailable') or profile.get('error') or '-'}")
+    elif command == "firmware verify":
+        mark = "MATCH" if data.get("matched") else "MISMATCH"
+        print(f"{mark}  {data.get('boardId')}  {data.get('file')}  {data.get('size')} bytes")
+        print(f"sha256: {data.get('sha256')}")
     elif command == "code check":
         print(f"{'PASS' if data.get('valid') else 'FAIL'}  {data.get('source')}  sha256={data.get('checksum', '')[:12]}")
         for item in data.get("diagnostics", []):

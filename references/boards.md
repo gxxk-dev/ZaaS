@@ -10,7 +10,7 @@
 | 掌控板 2.0 | `hw_labplus_mpython_v2` | `labplus-mpython-v2` | `labplus-mpython-v2` | `mpython-v2` | `mpython2.bin`，mPython v2.6.0，offset 0 |
 | 掌控板 3.0 | `hw_labplus_mpython_esp32s3_v3` | `labplus-mpython-esp32s3-v3` | 无 | `mpython-v3` | `mpython3.bin`，offset 0（镜像以 `resources/firmware/manifest.json` 为准） |
 
-固件镜像都在 `$ZW_HOME/resources/firmware/`，本地存在时 `zw boards` 会标 `firmwareInstalled=true`。镜像的 `sha256`、大小和来源 URL 以 `resources/firmware/manifest.json` 为准。CLI 只报告元数据，不下载、不校验、不刷写。
+固件镜像都在 `$ZW_HOME/resources/firmware/`，本地存在时 `zw boards` 会标 `firmwareInstalled=true`。镜像的 `sha256`、大小和来源 URL 以 `resources/firmware/manifest.json` 为准。`zw firmware list/get` 只读展示元数据；`zw firmware verify` 只读比对本地文件的大小和 SHA-256，不下载、不刷写。
 
 ## 常用别名
 

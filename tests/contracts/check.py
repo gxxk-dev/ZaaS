@@ -50,6 +50,53 @@ def _error_code(payload: dict) -> str:
     return (payload.get("error") or {}).get("code")
 
 
+def _check_firmware() -> None:
+    case = EXPECTED["firmware"]
+    code, payload = run("firmware", "list")
+    data = expect_ok("firmware list", payload)
+    if code != 0 or data.get("count") != EXPECTED["boards"]:
+        fail(f"firmware list count={data.get('count')} exit={code}")
+    rows = {item.get("boardId"): item for item in data.get("firmware") or []}
+    if case["boardId"] not in rows:
+        fail(f"firmware list 缺少 {case['boardId']}")
+    if rows[case["boardId"]].get("chip") is None:
+        fail("firmware list 缺少 chip")
+    print("ok firmware list")
+
+    code, payload = run("firmware", "get", case["board"])
+    data = expect_ok("firmware get", payload)
+    if code != 0 or (data.get("profile") or {}).get("boardId") != case["boardId"]:
+        fail(f"firmware get 不符：exit={code} profile={data.get('profile')}")
+    local_path = (rows[case["boardId"]].get("localPath"))
+    if local_path:
+        code, payload = run("firmware", "verify", case["board"], "--file", local_path)
+        data = expect_ok("firmware verify", payload)
+        if code != 0 or not data.get("matched") or payload.get("writes"):
+            fail(f"firmware verify 正例不符：exit={code} writes={payload.get('writes')}")
+        print("ok firmware verify")
+    else:
+        print("skip firmware verify (local image missing)")
+
+    with tempfile.TemporaryDirectory(prefix="zw-firmware-") as tmp:
+        bad = Path(tmp) / "bad.bin"
+        bad.write_bytes(b"not-the-pinned-image")
+        code, payload = run("firmware", "verify", case["board"], "--file", str(bad))
+        if code != 4 or _error_code(payload) != "FIRMWARE_MISMATCH":
+            fail(f"firmware mismatch 负例不符：exit={code} code={_error_code(payload)}")
+        if payload.get("writes"):
+            fail("firmware verify 负例写盘")
+        link = Path(tmp) / "link.bin"
+        try:
+            link.symlink_to(local_path or bad)
+        except OSError:
+            link = None
+        if link is not None:
+            code, payload = run("firmware", "verify", case["board"], "--file", str(link))
+            if code != 4 or _error_code(payload) != "FILE_INVALID":
+                fail(f"firmware symlink 负例不符：exit={code} code={_error_code(payload)}")
+        print("ok firmware negatives")
+
+
 def _check_enclosure(case: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="zw-enclosure-") as tmp:
         root = Path(tmp)
@@ -268,6 +315,8 @@ def main() -> int:
     if code != 0 or data.get("overall") == "FAIL":
         fail(f"validate overall={data.get('overall')} exit={code}")
     print("ok validate")
+
+    _check_firmware()
 
     with tempfile.TemporaryDirectory(prefix="zw-contract-") as tmp:
         bad = Path(tmp) / "bad.py"

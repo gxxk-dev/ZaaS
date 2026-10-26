@@ -3,6 +3,10 @@
   "boards": 5,
   "laserTemplates": ["finger-box", "panel-box", "plate", "round-tag", "rounded-box"],
   "cadTemplates": ["mpython-shell", "photo-stand", "servo-horizontal", "servo-side", "servo-vertical"],
+  "firmware": {
+    "board": "k10",
+    "boardId": "hw_seed_unihiker_k10"
+  },
   "dfr0026": {
     "query": "DFR0026",
     "board": "k10",

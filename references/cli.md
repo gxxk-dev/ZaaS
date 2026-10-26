@@ -69,6 +69,9 @@ zw hardware search <关键词> [--board B] [--category C] [--limit N] --json
 zw hardware get <componentId|skillName|显示名> [--full] [--file PATH] --json
 zw hardware guide <componentId> --board B [--set key=value ...] --json
 zw hardware validate <board> <componentId...> --json
+zw firmware list [--board B] --json
+zw firmware get <board> --json
+zw firmware verify <board> --file PATH --json
 zw code check --board B --file main.py [--component ID ...] --json
 zw enclosure plan --request FILE|- --json
 ```
@@ -77,6 +80,8 @@ zw enclosure plan --request FILE|- --json
 - `hardware get` 默认只给文件元数据和指南摘要；`--full` 才内联全部文件正文；`--file` 只取一个文件。
 - `hardware guide` 的 `--set` 只接受该指南 `fields` 中出现的 key 和 value；不接受未知引脚。
 - `hardware validate` 必须显式列模块；CLI 会自动加入主控 MCU 组件。没有主控时上游只给 WARNING。
+- `firmware list/get` 只读 `resources/firmware/manifest.json` 与上游 `PROFILES`；镜像未提供时仍 exit 0，给 `unavailable` 和 warning。
+- `firmware verify` 只读计算本地文件大小和 SHA-256，与固定镜像比对；不下载、不刷写、不调用 FastAPI 的镜像接口。文件必须是普通文件（拒绝符号链接/目录）。匹配 exit 0，不匹配 exit 4 `FIRMWARE_MISMATCH`，无镜像 exit 4 `FIRMWARE_UNAVAILABLE`。
 - `code check --component` 额外做电气规则校验；省略时只做语法和板级 API 检查。
 - `enclosure plan` 只读、无 CadQuery 依赖；缺机械数据时 exit 4 `NEEDS_INPUT`，见 `enclosure.md`。
 
