@@ -13,7 +13,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ZW = ROOT / "scripts" / "zw"
-EXPECTED = json.loads((Path(__file__).resolve().parent / "expected.json").read_text(encoding="utf-8"))
+EXPECTED = json.loads(
+    (Path(__file__).resolve().parents[1] / "data" / "expected.json").read_text(encoding="utf-8")
+)
 
 
 def fail(message: str) -> None:
