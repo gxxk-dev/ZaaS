@@ -155,7 +155,7 @@ parameters.json  profiles.json  validation.json  geometry-summary.json  manifest
 
 - `writes` = manifest 文件 + `manifest.json` + `spec.json`。
 - 几何阶段失败时，已落盘文件会放进 `error.writes`；不会清理。
-- 同一 spec 重复构建的 `manifest.spec_sha256` 应一致（契约测试会检查）。
+- 同一 spec 重复构建的 `manifest.spec_sha256` 应一致（`python3 -m pytest -o addopts="" -m cad` 会检查）。
 - STL 保留装配坐标（上盖/压框未归零到 `z=0`）；`keepout` 只校验不挖空；硬件参考体只在 assembly/preview。
 
 ## 错误映射

@@ -21,7 +21,7 @@ export ZW_HOME=/mnt/dev-cold/zhangwen
 
 `ZW_HOME` 必须包含 `services/local-api/zhangwen/` 和 `.data/hardware-skills/`。没有 `.venv` 时，启动器会用 `uv run --no-project --python 3.13 --with-requirements ...` 建临时环境；CAD 命令需要 CadQuery/OCP。
 
-当前已在掌问 **V0.4.2026.1021.01**（`2e75546`）上验证。`zw status` 会读取 `$ZW_HOME/version.json` 报告 `zhangwenVersion` 和 release notes；上游升级后先跑 `zw status --json`，再跑 `python3 tests/contracts/check.py` 检查契约。
+当前已在掌问 **V0.4.2026.1021.01**（`2e75546`）上验证。`zw status` 会读取 `$ZW_HOME/version.json` 报告 `zhangwenVersion` 和 release notes；上游升级后先跑 `zw status --json`，再跑 `python3 -m pytest` 检查契约。
 
 ## 依赖
 
@@ -31,6 +31,16 @@ export ZW_HOME=/mnt/dev-cold/zhangwen
 - 不依赖 Node。
 
 优先复用 `$ZW_HOME/.venv`，零安装。`scripts/mise.toml` 只用于开发排障。
+
+## 测试
+
+```bash
+python3 -m pytest                         # core，默认不跑 CAD
+python3 -m pytest -o addopts="" -m cad    # CAD 构建
+python3 -m pytest -o addopts=""           # core + CAD
+```
+
+测试进程只需要 pytest（`scripts/requirements-dev.txt`），通过 `scripts/zw` 子进程复用 `$ZW_HOME/.venv`；不要把 pytest 装进掌问 `.venv`。没有 pytest 时用 `python3 -m pip install -r scripts/requirements-dev.txt`，或 `uv run --no-project --python 3.13 --with-requirements scripts/requirements-dev.txt pytest`。
 
 ## 命令
 
@@ -94,7 +104,8 @@ references/enclosure.md 自动外壳请求、profile、尺寸与产物
 references/device.md    pyrcli 命令与分工
 scripts/zw              bash 启动器
 scripts/zw_cli/         确定性 CLI
-tests/contracts/        JSON 契约快照
+tests/                  pytest 契约测试与 tests/data/expected.json
+pytest.ini              pytest 配置（默认排除 cad marker）
 ```
 
 ## 版权与许可
