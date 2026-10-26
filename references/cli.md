@@ -95,7 +95,8 @@ zw structure freeform plan --request FILE|- --json
 - `structure templates` 只读列出 5 个打包模板与 `box/cup/bracket` 三个 design-spec 模板；不需要 CadQuery。`structure library` 只读暴露 `services/structure-cad/server/data/hardware-library.json` 的 legacy 资料，不是 `HardwareProfile`，`enclosure` 不读取。`enclosure profiles` 只读列出 5 个 trusted profile 与资料包 mechanical profile；不读取 legacy 几何资料库。三者都走 core 依赖。
 - `structure library` 的 `<profile_id>` 与 `--category/--query` 互斥；缺文件 exit 5 `LIBRARY_MISSING`，损坏 exit 7 `LIBRARY_INVALID`，id 不存在 exit 3 `PROFILE_NOT_FOUND`，过滤无匹配 exit 0 + warning。
 - `enclosure plan` 只读、无 CadQuery 依赖；缺机械数据时 exit 4 `NEEDS_INPUT`，见 `enclosure.md`。
-- `structure freeform plan` 只读、无 CadQuery 依赖，校验 `zw.freeform-request/v1` 请求、布局和设计规则；连通性与切割相交仍需 `build`。见 `freeform.md`。
+- `structure freeform plan` 只读、无 CadQuery 依赖，校验 `zw.freeform-request/v1` 请求、布局和设计规则，以及文字字段/字体覆盖；连通性、切割相交和文字体积变化仍需 `build`。见 `freeform.md`。
+- `structure freeform` 的文字操作 `shape:"text"` 支持 `cut`/`add`，`font_size` 2–80、`depth` 0.1–10、文字 1–20 字；文字在所有几何操作之后应用。文字无效 exit 4 `TEXT_INVALID`，文字无体积变化 exit 4 `TEXT_NO_EFFECT`。
 
 ## 产出命令
 

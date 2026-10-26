@@ -69,6 +69,37 @@
         ]
       }
     },
+    "textRequest": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_text",
+      "operations": [
+        {"primitive_id": "plate", "op": "add", "shape": "box",
+         "size": [40, 30, 6], "center": [0, 0, 3]},
+        {"primitive_id": "label", "op": "cut", "shape": "text", "text": "掌问",
+         "font_size": 6, "depth": 0.6, "center": [0, 0, 6], "face": "top", "angle": 0}
+      ]
+    },
+    "textNoEffectRequest": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_text_off",
+      "operations": [
+        {"primitive_id": "plate", "op": "add", "shape": "box",
+         "size": [40, 30, 6], "center": [0, 0, 3]},
+        {"primitive_id": "label", "op": "cut", "shape": "text", "text": "掌问",
+         "font_size": 6, "depth": 0.6, "center": [100, 0, 6], "face": "top", "angle": 0}
+      ]
+    },
+    "badGlyphRequest": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_bad_glyph",
+      "operations": [
+        {"primitive_id": "plate", "op": "add", "shape": "box",
+         "size": [40, 30, 6], "center": [0, 0, 3]},
+        {"primitive_id": "label", "op": "cut", "shape": "text", "text": "͸",
+         "font_size": 6, "depth": 0.6, "center": [0, 0, 6], "face": "top", "angle": 0}
+      ]
+    },
+    "textBaseVolume": 7200.0,
     "cadBuildFiles": [
       "assembly.step", "geometry-summary.json", "manifest.json", "parameters.json",
       "part.step", "part.stl", "preview.glb", "profiles.json", "request.json",

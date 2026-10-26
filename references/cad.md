@@ -226,10 +226,10 @@ zw structure freeform build --request freeform.json --out DIR --json
 zw structure freeform build --spec DIR/spec.json --out DIR2 --json
 ```
 
-请求是 `zw.freeform-request/v1`（见 `references/freeform.md`），支持 `box` / `rounded_box` / `cylinder` 的 `add` / `cut`，最多 32 个操作，首个必须是 `add`。`plan` 不需要 CadQuery；`build` 才生成 STEP/STL/GLB。与 `structure solid` 的区别：
+请求是 `zw.freeform-request/v1`（见 `references/freeform.md`），支持 `box` / `rounded_box` / `cylinder` 的 `add` / `cut`，以及最多 32 个操作中的文字刻字/浮雕。首个**几何**操作必须是 `add`；文字操作在全部几何之后按顺序应用。`plan` 不需要 CadQuery；`build` 才生成 STEP/STL/GLB。与 `structure solid` 的区别：
 
 - `structure solid` 走上游 `DesignSpec`，只接受 box/cylinder/sphere，且不能带文字操作。
-- `structure freeform` 走 `CadBuildSpec(template="freeform_structure")`，带 `role`、`rotation_z_deg`、`rounded_box`，并在 `--out` 内额外写 `spec.json`/`request.json` sidecar，便于回建。
+- `structure freeform` 走 `CadBuildSpec(template="freeform_structure")`，带 `role`、`rotation_z_deg`、`rounded_box` 和 `shape:"text"` 文字操作，并在 `--out` 内额外写 `spec.json`/`request.json` sidecar，便于回建。
 
 `build --spec` 只接受 `template="freeform_structure"`、`template_revision="freeform-structure.v1"`；其他模板用 `enclosure build --spec`。
 

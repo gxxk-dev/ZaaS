@@ -343,6 +343,25 @@ def _check_freeform() -> None:
                 fail(f"freeform {name} 负例不符：exit={code} code={_error_code(payload)}")
         print("ok freeform negatives")
 
+        text_request = _write_request(root, "text.json", case["textRequest"])
+        code, payload = run("structure", "freeform", "plan", "--request", str(text_request))
+        data = expect_ok("freeform text plan", payload)
+        operations = data.get("textOperations") or []
+        if code != 0 or len(operations) != 1:
+            fail(f"freeform text plan textOperations={operations}")
+        operation = operations[0]
+        if operation.get("text") != "掌问" or operation.get("operation") != "cut" or operation.get("fontSize") != 6:
+            fail(f"freeform text plan 操作不符：{operation}")
+        primitives = (data.get("spec") or {}).get("freeform_geometry", {}).get("primitives") or []
+        if len(primitives) != 1:
+            fail(f"freeform text plan 不应把 text 计入几何 primitives：{len(primitives)}")
+
+        glyph = _write_request(root, "bad-glyph.json", case["badGlyphRequest"])
+        code, payload = run("structure", "freeform", "plan", "--request", str(glyph))
+        if code != 4 or _error_code(payload) != "TEXT_INVALID":
+            fail(f"freeform 缺字负例不符：exit={code} code={_error_code(payload)}")
+        print("ok freeform text plan")
+
         nonempty = root / "nonempty"
         nonempty.mkdir()
         (nonempty / "keep.txt").write_text("keep", encoding="utf-8")
@@ -398,7 +417,60 @@ def _check_freeform() -> None:
                 fail("freeform --spec 不应写 request.json")
             if not (rebuild.get("validation") or {}).get("ok"):
                 fail("freeform rebuild validation 未通过")
-            print("ok freeform cad build")
+
+            text_out = root / "text-out"
+            code, payload = run(
+                "structure", "freeform", "build", "--request", str(text_request), "--out", str(text_out),
+            )
+            data = expect_ok("freeform text build", payload)
+            if code != 0:
+                fail(f"freeform text build exit={code}")
+            missing = [name for name in case["cadBuildFiles"] if not (text_out / name).is_file()]
+            if missing:
+                fail(f"freeform text build 缺少文件：{missing}")
+            if not (data.get("validation") or {}).get("ok"):
+                fail("freeform text build validation 未通过")
+            parts = (data.get("geometrySummary") or {}).get("parts") or []
+            if len(parts) != 1 or parts[0].get("solid_count") != 1:
+                fail(f"freeform text build parts={parts}")
+            volume = float(parts[0].get("volume_mm3") or 0)
+            if not 0 < case["textBaseVolume"] - volume < 100:
+                fail(f"freeform text cut 体积不符：{volume}")
+            text_spec = json.loads((text_out / "spec.json").read_text(encoding="utf-8"))
+            if len(text_spec.get("textOperations") or []) != 1:
+                fail(f"freeform text spec.json 缺少 textOperations：{text_spec}")
+            text_digest = _canonical_sha256(text_spec)
+            if data.get("specSha256") != text_digest:
+                fail(f"freeform text specSha256 不符：{data.get('specSha256')} != {text_digest}")
+            text_request_doc = json.loads((text_out / "request.json").read_text(encoding="utf-8"))
+            text_rows = [
+                item for item in text_request_doc.get("operations") or []
+                if item.get("shape") == "text"
+            ]
+            if len(text_rows) != 1 or text_rows[0].get("text") != "掌问":
+                fail(f"freeform text request.json 不符：{text_rows}")
+
+            text_rebuild = root / "text-rebuild"
+            code, payload = run(
+                "structure", "freeform", "build",
+                "--spec", str(text_out / "spec.json"), "--out", str(text_rebuild),
+            )
+            rebuild = expect_ok("freeform text rebuild", payload)
+            if code != 0 or rebuild.get("specSha256") != text_digest:
+                fail(f"freeform text rebuild sha 不一致：{text_digest} != {rebuild.get('specSha256')}")
+            rebuilt_parts = (rebuild.get("geometrySummary") or {}).get("parts") or []
+            rebuilt_volume = float(rebuilt_parts[0].get("volume_mm3") or 0)
+            if abs(rebuilt_volume - volume) > 1e-6:
+                fail(f"freeform text rebuild 体积不一致：{volume} != {rebuilt_volume}")
+
+            off_body = _write_request(root, "text-off.json", case["textNoEffectRequest"])
+            code, payload = run(
+                "structure", "freeform", "build",
+                "--request", str(off_body), "--out", str(root / "text-off-out"),
+            )
+            if code != 4 or _error_code(payload) != "TEXT_NO_EFFECT":
+                fail(f"freeform TEXT_NO_EFFECT 负例不符：exit={code} code={_error_code(payload)}")
+            print("ok freeform text cad build")
         else:
             print("skip freeform cad build (ZW_CONTRACT_CAD != 1)")
 

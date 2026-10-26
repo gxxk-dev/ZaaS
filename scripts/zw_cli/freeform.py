@@ -22,14 +22,16 @@ SPEC_SCHEMA = "zw.freeform-spec/v1"
 TEMPLATE = "freeform_structure"
 TEMPLATE_REVISION = "freeform-structure.v1"
 IDENTIFIER = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
-SHAPES = ("box", "rounded_box", "cylinder")
+SHAPES = ("box", "rounded_box", "cylinder", "text")
 OPERATIONS = ("add", "cut")
 ROLES = ("body", "pcb", "connector", "sensor", "feature")
 ROTATIONS = (0, 90, 180, 270)
+FACES = ("top", "bottom", "front", "back", "left", "right")
 MAX_OPERATIONS = 32
 COMMON_FIELDS = {"primitive_id", "op", "shape", "center", "rotation_z_deg", "role"}
+TEXT_FIELDS = {"primitive_id", "op", "shape", "text", "font_size", "depth", "center", "face", "angle"}
 
-PLAN_WARNING = "plan 只校验请求与布局；连通性、cut 是否与实体相交需 build 才能确认。"
+PLAN_WARNING = "plan 只校验请求、文字字段与布局；连通性、几何/文字 cut 是否与实体相交需 build 才能确认。"
 NOMINAL_WARNING = "产物是名义几何；引擎只做参数与几何有效性校验，不做打印公差、强度或实物装配验证。"
 
 
@@ -116,7 +118,7 @@ def _primitive(raw: Any, index: int) -> dict[str, Any]:
     shape = raw.get("shape")
     if shape not in SHAPES:
         raise _request_error(
-            f"{primitive_id}.shape 必须是 box、rounded_box 或 cylinder。",
+            f"{primitive_id}.shape 必须是 box、rounded_box、cylinder 或 text。",
             details={"primitive_id": primitive_id, "shape": shape},
         )
     operation = raw.get("op")
@@ -125,6 +127,8 @@ def _primitive(raw: Any, index: int) -> dict[str, Any]:
             f"{primitive_id}.op 必须是 add 或 cut。",
             details={"primitive_id": primitive_id, "op": operation},
         )
+    if shape == "text":
+        return _text_primitive(raw, primitive_id, operation)
     if index == 0 and operation != "add":
         raise _request_error(
             "第一个操作必须是 add；freeform 不能从 cut 开始。",
@@ -203,6 +207,46 @@ def _primitive(raw: Any, index: int) -> dict[str, Any]:
     return result
 
 
+def _text_primitive(
+    raw: dict[str, Any], primitive_id: str, operation: str
+) -> dict[str, Any]:
+    unknown = sorted(set(raw) - TEXT_FIELDS)
+    if unknown:
+        raise _request_error(
+            f"{primitive_id} 的 text 不支持字段：{', '.join(unknown)}。",
+            details={"primitive_id": primitive_id, "unknown": unknown},
+        )
+    text = raw.get("text")
+    if not isinstance(text, str) or not text or len(text) > 20:
+        raise _request_error(
+            f"{primitive_id}.text 必须是 1–20 个字符的字符串。",
+            details={"primitive_id": primitive_id, "text": text},
+        )
+    if "center" not in raw:
+        raise _request_error(f"{primitive_id} 缺少 center。", details={"primitive_id": primitive_id})
+    center = _triple(raw["center"], "center", primitive_id)
+    font_size = _number(raw.get("font_size"), "font_size", primitive_id)
+    depth = _number(raw.get("depth"), "depth", primitive_id)
+    face = raw.get("face")
+    if face not in FACES:
+        raise _request_error(
+            f"{primitive_id}.face 必须是 {'/'.join(FACES)}。",
+            details={"primitive_id": primitive_id, "face": face},
+        )
+    angle = _number(raw.get("angle", 0), "angle", primitive_id)
+    return {
+        "primitive_id": primitive_id,
+        "op": operation,
+        "shape": "text",
+        "text": text,
+        "font_size": font_size,
+        "depth": depth,
+        "center": center,
+        "face": face,
+        "angle": angle,
+    }
+
+
 def parse_request(raw: Any) -> dict[str, Any]:
     """Validate a ``zw.freeform-request/v1`` payload and normalize it."""
     if not isinstance(raw, dict):
@@ -239,6 +283,16 @@ def parse_request(raw: Any) -> dict[str, Any]:
             "primitive_id 必须唯一。",
             details={"duplicates": sorted({item for item in identifiers if identifiers.count(item) > 1})},
         )
+    geometry = [item for item in normalized if item["shape"] != "text"]
+    if not geometry:
+        raise _request_error(
+            "请求至少需要一个几何操作（box/rounded_box/cylinder）；text 不能单独构成实体。"
+        )
+    if geometry[0]["op"] != "add":
+        raise _request_error(
+            "第一个几何操作必须是 add；freeform 不能从 cut 开始。",
+            details={"primitive_id": geometry[0]["primitive_id"]},
+        )
     return {
         "schema": REQUEST_SCHEMA,
         "design_id": design_id,
@@ -249,6 +303,8 @@ def parse_request(raw: Any) -> dict[str, Any]:
 def spec_data(request: dict[str, Any]) -> dict[str, Any]:
     primitives = []
     for item in request["operations"]:
+        if item["shape"] == "text":
+            continue
         primitive = {
             "primitive_id": item["primitive_id"],
             "operation": item["op"],
@@ -292,6 +348,74 @@ def _plan_upstream():
         "resolve_layout": resolve_layout,
         "validate_design": validate_design,
     }
+
+
+def text_upstream():
+    try:
+        from zhangwen.web.solid_text import TextOperation
+    except ImportError as exc:
+        raise ZwError(
+            "DEPENDENCY_MISSING",
+            f"本地掌问缺少 zhangwen.web.solid_text：{exc}",
+            "升级掌问到 V0.4.2026.1021.01 或更新版本；freeform 文字操作依赖该模块。",
+            5,
+        ) from exc
+    return TextOperation
+
+
+def text_operation_data(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "text",
+        "operation": item["op"],
+        "text": item["text"],
+        "fontSize": item["font_size"],
+        "depth": item["depth"],
+        "center": item["center"],
+        "face": item["face"],
+        "angle": item["angle"],
+    }
+
+
+def text_operations(request: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        text_operation_data(item)
+        for item in request["operations"]
+        if item["shape"] == "text"
+    ]
+
+
+def validate_text_operations(
+    text_model, operations: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    validated = []
+    for item in operations:
+        try:
+            operation = text_model.model_validate(item)
+        except ValidationError as exc:
+            raise ZwError(
+                "TEXT_INVALID",
+                "文字操作未通过校验。",
+                "检查 text/font_size/depth/center/face/angle；文字需在随包字体中有轮廓。",
+                4,
+                details={"errors": _validation_detail(exc), "operation": item},
+            ) from exc
+        except OSError as exc:
+            raise ZwError(
+                "DEPENDENCY_MISSING",
+                f"无法读取掌问字体：{exc}",
+                "确认 $ZW_HOME/resources/fonts/NotoSansSC.ttf 存在。",
+                5,
+            ) from exc
+        except ValueError as exc:
+            raise ZwError(
+                "TEXT_INVALID",
+                f"文字无效：{exc}",
+                "检查文字内容、字号和深度；不要使用字体缺失的字符。",
+                4,
+                details={"operation": item},
+            ) from exc
+        validated.append(operation.model_dump(mode="json"))
+    return validated
 
 
 def build_spec(upstream: dict, data: dict[str, Any]):
@@ -345,6 +469,10 @@ def cmd_plan(request_value: str) -> CommandResult:
     request = parse_request(raw)
     spec = build_spec(upstream, spec_data(request))
     plan = plan_spec(upstream, spec)
+    operations = text_operations(request)
+    plan["textOperations"] = (
+        validate_text_operations(text_upstream(), operations) if operations else []
+    )
     return CommandResult(data=plan, warnings=[PLAN_WARNING, NOMINAL_WARNING])
 
 
@@ -368,6 +496,7 @@ def spec_wrapper(spec, text_operations: list[dict[str, Any]]) -> dict[str, Any]:
 def load_spec(upstream: dict, raw: Any):
     """Accept the ZaaS wrapper or a bare freeform CadBuildSpec."""
     text_operations: list[dict[str, Any]] = []
+    operations: list[Any] = []
     if isinstance(raw, dict) and "schema" in raw and raw.get("schema") != SPEC_SCHEMA:
         raise _spec_error(
             f"freeform spec schema 必须是 {SPEC_SCHEMA}。",
@@ -385,11 +514,9 @@ def load_spec(upstream: dict, raw: Any):
         operations = raw.get("textOperations", [])
         if not isinstance(operations, list):
             raise _spec_error("textOperations 必须是数组。")
-        if operations:
-            raise _spec_error(
-                "当前版本尚不支持 textOperations；只用几何 operations。",
-                details={"textOperations": operations},
-            )
+        for index, item in enumerate(operations):
+            if not isinstance(item, dict):
+                raise _spec_error(f"textOperations[{index}] 必须是对象。")
         data = raw["spec"]
     else:
         data = raw
@@ -406,4 +533,6 @@ def load_spec(upstream: dict, raw: Any):
             f"freeform --spec 需要 template_revision={TEMPLATE_REVISION}，当前 {spec.template_revision}。",
             details={"template_revision": spec.template_revision},
         )
+    if operations:
+        text_operations = validate_text_operations(text_upstream(), operations)
     return spec, text_operations
