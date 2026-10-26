@@ -1,6 +1,6 @@
 # ZaaS — ZhangWen as a Skill
 
-把本地掌问 / ZhangWen 安装封装成 Claude Code skill：硬件资料检索、选型、接线、电气校验、MicroPython 检查、激光切割图纸、Python CAD、固定外壳模板改造，以及由已选硬件确定性生成带开孔/上盖/螺丝柱的外壳与单器件安装座。本仓库即 skill 源码；运行时读取用户本机的掌问安装。
+把本地掌问 / ZhangWen 安装封装成 Claude Code skill：硬件资料检索、选型、接线、电气校验、MicroPython 检查与确定性修复、固件元数据/本地校验、板级 Skill 资料、激光切割图纸、Python CAD、固定外壳模板改造、freeform 声明式实体与刻字，以及由已选硬件确定性生成带开孔/上盖/螺丝柱的外壳与单器件安装座。本仓库即 skill 源码；运行时读取用户本机的掌问安装。
 
 **非官方**：本项目不是掌问官方发行物，与掌问项目无隶属关系。运行时读取用户本机的掌问安装，不复制、不捆绑其硬件包、图片、固件、字体或 CAD 模板。
 
@@ -37,15 +37,29 @@ export ZW_HOME=/mnt/dev-cold/zhangwen
 ```bash
 zw status --json
 zw boards --json
+zw boards --board B [--full [--file PATH] | --context QUERY] --json
 zw hardware search <q> [--board B] [--category C] --json
 zw hardware get <id> [--full] [--file PATH] --json
-zw hardware guide <id> --board B [--set k=v] --json
+zw hardware guide <id> --board B [--kind K] [--set k=v] --json
 zw hardware validate <board> <id...> --json
+zw firmware list [--board B] --json
+zw firmware get <board> --json
+zw firmware verify <board> --file PATH --json
 zw code check --board B --file main.py [--component ID] --json
+zw code fix --board B --file main.py [--out FILE] --json
 zw laser build --template ID --params JSON --out DIR --json
+zw laser text --text "掌问" [--out DIR] --json
+zw laser templates --json
+zw structure templates --json
+zw structure library [--category C] [--query Q] --json
 zw structure template <id> [--edit plan.json] --out DIR --json
 zw structure template <id> --list-params --json
 zw structure solid --spec spec.json --out DIR --json
+zw structure solid --template box|cup|bracket [--params JSON] --out DIR --json
+zw structure freeform plan  --request FILE|- --json
+zw structure freeform build --request FILE|- --out DIR --json
+zw structure freeform build --spec FILE|-   --out DIR --json
+zw enclosure profiles --json
 zw enclosure plan  --request FILE|- --json
 zw enclosure build --request FILE|- --out DIR --json
 zw enclosure build --spec FILE|-   --out DIR --json
@@ -57,8 +71,11 @@ zw enclosure build --spec FILE|-   --out DIR --json
 
 - 只读掌问数据；除 `--out` 外不写盘。
 - 不启动 FastAPI、不调用模型 API、不刷新目录缓存、不迁移 SQLite。
-- v1 不调用 Node 自动外壳管线；外壳由 Python 的 `zhangwen.cad_engine` 确定性生成。
-- `enclosure` 缺机械数据时返回 `NEEDS_INPUT` 提问，不猜尺寸；`build --out` 必须为空或不存在，没有 `--force`。
+- 固件命令只读元数据并做本地文件大小/SHA-256 校验；不下载、不刷写。
+- `structure library` 是 structure-cad 的 legacy 只读资料，不是 `HardwareProfile`，`enclosure` 不读取。
+- v1 不调用 Node 自动外壳管线；外壳与 freeform 由 Python 的 `zhangwen.cad_engine` 确定性生成。
+- `enclosure` 缺机械数据时返回 `NEEDS_INPUT` 提问，不猜尺寸；`enclosure build`/`structure freeform build` 的 `--out` 必须为空或不存在，没有 `--force`。
+- freeform 的 `plan` 不需要 CadQuery；`build` 需要。文字刻字固定使用随包字体，文字无效或布尔无体积变化会明确报错。
 - 设备 I/O 交给 `pyrcli`；不在本 skill 内实现串口协议。
 - 激光/CAD 输出为名义几何，不含刀缝补偿、打印公差或实物验证。
 
@@ -71,7 +88,8 @@ references/boards.md    5 块主控差异
 references/hardware.md  资料包字段与指南
 references/code.md      MicroPython 约定与检查
 references/laser.md     5 类激光模板
-references/cad.md       固定模板、改造、参数化实体
+references/cad.md       固定模板、改造、design-spec 模板、参数化实体
+references/freeform.md  freeform 请求、spec 包装、文字刻字
 references/enclosure.md 自动外壳请求、profile、尺寸与产物
 references/device.md    pyrcli 命令与分工
 scripts/zw              bash 启动器

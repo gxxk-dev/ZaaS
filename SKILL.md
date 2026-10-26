@@ -1,6 +1,6 @@
 ---
 name: zhangwen
-description: "Use for ZhangWen/掌问 project work: selecting and validating MicroPython hardware from its local 260-package library, rendering board-specific wiring and module guides for 掌控板 2.0/3.0, 行空板 K10, XIAO ESP32S3 Sense and ESP32-C3, checking generated MicroPython, and producing laser-cut drawings (SVG/DXF) or Python-side CAD models (STL/STEP), including bounded edits of packaged 3D shell templates and deterministic hardware-driven enclosures with openings, lids and standoffs, through a local ZhangWen install. 适用于掌问项目内的硬件选型、接线、模块资料、代码检查、激光切割、3D 建模/外壳改造与自动外壳管线；独立 HandPy/mPython 板级开发用 handpy skill，串口上传/刷机用 pyrcli。"
+description: "Use for ZhangWen/掌问 project work: selecting and validating MicroPython hardware from its local 260-package library, rendering board-specific wiring and module guides for 掌控板 2.0/3.0, 行空板 K10, XIAO ESP32S3 Sense and ESP32-C3, checking and deterministically repairing generated MicroPython, verifying pinned firmware images, inspecting strict/legacy board skills, and producing laser-cut drawings (SVG/DXF) or Python-side CAD models (STL/STEP), including bounded edits of packaged 3D shell templates, deterministic hardware-driven enclosures, and declarative freeform solids with text engraving, through a local ZhangWen install. 适用于掌问项目内的硬件选型、接线、模块资料、代码检查/修复、固件校验、板级资料、激光切割、3D 建模/外壳改造/freeform 刻字与自动外壳管线；独立 HandPy/mPython 板级开发用 handpy skill，串口上传/刷机用 pyrcli。"
 ---
 
 # 掌问（ZhangWen）
@@ -24,8 +24,10 @@ description: "Use for ZhangWen/掌问 project work: selecting and validating Mic
    - 选型/资料/接线/校验 → `references/hardware.md`，再查 `references/boards.md`。
    - 生成或检查 MicroPython → `references/code.md` + `references/boards.md`。
    - 激光切割 → `references/laser.md`。
-   - 3D 固定模板/改造/参数化实体 → `references/cad.md`。
+   - 3D 固定模板/改造/design-spec 模板/参数化实体 → `references/cad.md`。
+   - freeform 声明式实体与刻字 → `references/freeform.md`。
    - 由已选硬件自动生成外壳/安装座 → `references/enclosure.md`。
+   - 固件目录/校验、板级 Skill 正文与上下文 → `references/device.md` + `references/boards.md`。
    - 上板、串口、刷机 → `references/device.md`。
 3. 只读需要的 reference；不要一次加载全部。
 
@@ -51,9 +53,10 @@ zw hardware validate <板> <componentId...> --json
 
 ```bash
 zw code check --board <板> --file main.py [--component <id> ...] --json
+zw code fix --board <板> --file main.py [--out fixed.py] --json
 ```
 
-FAIL 必须修；WARNING 必须转述。需要上板时按 `device.md` 调 `pyrcli`，先 `scan --json` 确认串口。
+FAIL 必须修；WARNING 必须转述。`code fix` 只做上游确定性改写（K10 屏幕、mPython 引脚），默认只读预览 diff；`--out` 只写不存在的新文件。exit 0 只表示修复流程完成，不表示诊断清零或已实测。需要上板时按 `device.md` 调 `pyrcli`，先 `scan --json` 确认串口。
 
 ### 3. 激光图纸
 
@@ -61,13 +64,23 @@ FAIL 必须修；WARNING 必须转述。需要上板时按 `device.md` 调 `pyrc
 zw laser build --template finger-box \
   --params '{"width":80,"depth":60,"height":40,"thickness":3}' \
   --out ./laser-out --json
+
+# 只读看模板与参数默认值
+zw laser templates --json
+
+# 只做文字刻字图纸；不带 --out 时只读
+zw laser text --text "掌问" --size 10 [--out ./text-out] --json
 ```
 
-先问清外尺寸、板厚、材料。`panel-box` 是胶合对接，`finger-box` 是榫齿，`rounded-box` 是弯折盒，不能混称。
+先问清外尺寸、板厚、材料。`panel-box` 是胶合对接，`finger-box` 是榫齿，`rounded-box` 是弯折盒，不能混称。`rounded-box` 的 `pattern_version=1` 只用于复现旧设计，新设计用默认 2；两种排版切缝不同。`laser text` 固定使用随包 NotoSansSC，文字缺字 exit 4 `TEXT_INVALID`。
 
 ### 4. 3D
 
 ```bash
+# 模板目录（打包模板 + box/cup/bracket）与 legacy 几何资料
+zw structure templates --json
+zw structure library [--category C] [--query Q] --json
+
 # 看模板参数与部件
 zw structure template mpython-shell --list-params --json
 
@@ -77,15 +90,23 @@ zw structure template mpython-shell --out ./cad-out --json
 # 受约束改造：Claude 只写 JSON
 zw structure template mpython-shell --edit plan.json --out ./shell-out --json
 
-# 参数化实体
+# design-spec 模板或自定义参数化实体
+zw structure solid --template box --params '{"width":40,"depth":30,"height":20}' --out ./box-out --json
 zw structure solid --spec spec.json --out ./solid-out --json
+
+# freeform 声明式实体（plan 只读，build 需 CadQuery）
+zw structure freeform plan --request freeform.json --json
+zw structure freeform build --request freeform.json --out ./freeform-out --json
 ```
 
-`--edit` 的 `TemplateEditSpec` 只允许改 `--list-params` 中的顶层数值 + 对 printable 部件做受控布尔/刻字。模型不生成 Python，CLI 不执行模型文本。坐标是原模板装配坐标；刻字深度必须小于板厚。
+`--edit` 的 `TemplateEditSpec` 只允许改 `--list-params` 中的顶层数值 + 对 printable 部件做受控布尔/刻字。模型不生成 Python，CLI 不执行模型文本。坐标是原模板装配坐标；刻字深度必须小于板厚。`structure solid` 走 `DesignSpec`（box/cylinder/sphere）；需要 `rounded_box`、`rotation_z_deg`、`role` 或文字刻字时用 `structure freeform`（见 `references/freeform.md`）。`structure library` 是 structure-cad 的 legacy 只读资料，不是 `HardwareProfile`，`enclosure` 不读取。
 
 ### 5. 自动外壳（`enclosure`）
 
 ```bash
+# 只读看可用的 trusted + 资料包机械 profile
+zw enclosure profiles --json
+
 # 只读规划：解析组件、自动尺寸、布局与校验
 zw enclosure plan --request request.json --json
 
@@ -96,7 +117,23 @@ zw enclosure build --request request.json --out ./enclosure-out --json
 zw enclosure build --spec ./enclosure-out/spec.json --out ./enclosure-out-2 --json
 ```
 
-请求里每个组件提供 `profile_id`、`component_id` 或 inline `profile`；`component_id` 没有 `mechanicalProfile` 时 exit 4 `NEEDS_INPUT`，必须向用户提问，不能猜尺寸。K10 默认只能 external；放腔内必须显式 `derive_mount: true` 并声明这是包装层推断。`--out` 必须为空或不存在，没有 `--force`。
+请求里每个组件提供 `profile_id`、`component_id` 或 inline `profile`；`component_id` 没有 `mechanicalProfile` 时 exit 4 `NEEDS_INPUT`，必须向用户提问，不能猜尺寸。K10 默认只能 external；放腔内必须显式 `derive_mount: true` 并声明这是包装层推断。`--out` 必须为空或不存在，没有 `--force`。`enclosure profiles` 不读取 legacy 几何资料库；同名 id 以该命令为准。
+
+### 6. 固件与板级资料
+
+```bash
+zw firmware list [--board B] --json
+zw firmware get k10 --json
+zw firmware verify k10 --file PATH --json
+
+zw boards --board k10 --full [--file PATH] --json
+zw boards --board k10 --context "屏幕 绘图" --json
+zw hardware guide <componentId> --board k10 --kind diagnostic --json
+```
+
+- `firmware list/get` 只读元数据；`verify` 只比对本地文件大小和 SHA-256，不下载、不刷写。exit 0 只表示文件与固定镜像一致，不代表设备可启动。
+- `boards --full` 区分 strict/legacy Board Skill；legacy 只读回退标 `verified:false`，不能表述为已校验。`--context` 只支持 strict 布局，legacy/无 Board Skill exit 4。
+- `hardware guide --kind` 是断言，不匹配 exit 4 `GUIDE_KIND_MISMATCH`；接线与示例仍以指南内容为准。
 
 ## 硬规则
 
@@ -107,15 +144,17 @@ zw enclosure build --spec ./enclosure-out/spec.json --out ./enclosure-out-2 --js
 5. 行空板 K10：屏幕只用 `unihiker_k10.screen` 的 `init(dir=2)` → `draw_text` → `show_draw()` 流程；禁止 `screen.text()`、`framebuf`、M10 `pinpong`。
 6. 掌控板 3.0：用 `mpython.display`/`lcd` 彩屏接口，不照搬 2.0 的 `oled`；没有 Board Skill，API 未确认时标“待确认”。
 7. 生成的代码不硬编码 Wi-Fi 密码/Token/API Key；用占位符并提示用户填写。
-8. 激光/CAD/外壳产物必须声明“名义尺寸，未做刀缝补偿/打印公差/实物装配验证”。
+8. 激光/CAD/外壳/freeform 产物必须声明“名义尺寸，未做刀缝补偿/打印公差/实物装配验证”。
 9. 改固定模板优先 `--edit`，保留原模板孔位与装配关系；不要用 `structure solid` 重画来绕过不可改的参数。
-10. 只写 `--out`；默认拒绝非空目录，拒绝写入 `$ZW_HOME`（除非用户明确 `--allow-in-repo`）。绝不刷新掌问缓存、迁移数据或调用任何 `install_*`/`update_*`/`save_*`。
+10. 只写 `--out`；默认拒绝非空目录，拒绝写入 `$ZW_HOME`（除非用户明确 `--allow-in-repo`）。绝不刷新掌问缓存、迁移数据或调用任何 `install_*`/`update_*`/`save_*`。`code fix --out` 只写不存在的新文件。
 11. `enclosure` 缺机械数据时只提问（`NEEDS_INPUT`），不把电气参数当机械尺寸，不猜孔位/厚度。`derive_mount` 是包装层推断，必须转述“待实物验证”。
-12. `enclosure build --out` 必须为空或不存在；没有 `--force`，不要改成覆盖模式。
+12. `enclosure build` 与 `structure freeform build` 的 `--out` 必须为空或不存在；没有 `--force`，不要改成覆盖模式。
+13. `structure library` 是 legacy 只读资料，不是 `HardwareProfile`，`enclosure` 不读取；同名 id 的 enclosure 解析以 `enclosure profiles` 为准。
+14. `firmware verify` 只做本地文件校验；不下载、不刷写。刷机仍由 `pyrcli` 执行，且需用户明确同意。
 
 ## 与 handpy / pyrcli 的分工
 
-- **zhangwen**：掌问资料库、选型、接线、电气校验、代码检查、激光、Python CAD、固定外壳模板改造、自动外壳管线。
+- **zhangwen**：掌问资料库、选型、接线、电气校验、固件元数据/本地校验、板级资料、代码检查/修复、激光、Python CAD、固定模板改造、freeform 声明式实体、自动外壳管线。
 - **handpy**：独立 HandPy/mPython 板级 API 知识、屏幕/按键/内置传感器、`handpy-tool`。
 - **pyrcli**：设备扫描、上传、运行、复位、刷固件。两个 skill 共用，不在掌问里重写。
 - 用户只做通用 ESP32 或非掌问硬件时，不要强行套掌问资料包。
@@ -131,7 +170,8 @@ zw enclosure build --spec ./enclosure-out/spec.json --out ./enclosure-out-2 --js
 ## 故障排查
 
 - `zw` 报 `DEPENDENCY_MISSING` → `zw status --json` 看缺哪个；按 `cli.md` 的解释器顺序处理。
-- `exit 3` → 标识符不对；先 `hardware search` 或 `boards --json`。
-- `exit 4` → 校验 FAIL、`questions` 非空、`MOUNT_CONFLICT` 或几何无效；不要绕过，先修输入。`NEEDS_INPUT` 时按 `questions` 向用户要机械尺寸。
-- `exit 6` → 输出目录非空或位于 `ZW_HOME`；换目录或显式 `--force`/`--allow-in-repo`（`enclosure build` 不支持 `--force`，只能换空目录）。
+- `exit 3` → 标识符不对；先 `hardware search`、`boards --json`、`structure templates`、`structure library` 或 `enclosure profiles`。
+- `exit 4` → 校验 FAIL、`questions` 非空、`MOUNT_CONFLICT`、`CODE_INVALID`、`TEXT_INVALID`/`TEXT_NO_EFFECT` 或几何无效；不要绕过，先修输入。`NEEDS_INPUT` 时按 `questions` 向用户要机械尺寸。
+- `exit 5` → 缺解释器/CadQuery/OCP/随包字体；用掌问 `.venv` 或 `scripts/requirements-cad.txt`，不要自行改掌问仓库依赖。
+- `exit 6` → 输出目录非空或位于 `ZW_HOME`；换目录或显式 `--force`/`--allow-in-repo`（`enclosure build`/`structure freeform build` 不支持 `--force`，只能换空目录）。
 - `exit 7` → 模板 sha256/上游数据/子进程问题；设 `ZW_DEBUG=1` 看堆栈，不要改掌问文件。
