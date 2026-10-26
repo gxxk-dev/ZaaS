@@ -11,6 +11,33 @@ if [[ ! -d "$ZW_HOME/services/local-api/zhangwen" ]]; then
   exit 5
 fi
 
+requirements="$DIR/requirements-core.txt"
+select_requirements() {
+  local group="${1:-}"
+  local sub="${2:-}"
+  local action="${3:-}"
+  requirements="$DIR/requirements-core.txt"
+  if [[ "$group" == "structure" ]]; then
+    if [[ "$sub" == "template" || "$sub" == "solid" ]]; then
+      requirements="$DIR/requirements-cad.txt"
+    elif [[ "$sub" == "freeform" && "$action" == "build" ]]; then
+      requirements="$DIR/requirements-cad.txt"
+    fi
+  elif [[ "$group" == "enclosure" && "$sub" == "build" ]]; then
+    requirements="$DIR/requirements-cad.txt"
+  fi
+}
+select_requirements "$@"
+
+if [[ "${ZW_LAUNCH_DEBUG_REQUIREMENTS:-}" == "1" ]]; then
+  if [[ "$requirements" == *requirements-cad.txt ]]; then
+    echo "cad"
+  else
+    echo "core"
+  fi
+  exit 0
+fi
+
 python_bin="${ZW_PYTHON:-}"
 python_source="ZW_PYTHON"
 if [[ -z "$python_bin" && -x "$ZW_HOME/.venv/bin/python" ]]; then
@@ -29,10 +56,6 @@ if [[ -n "$python_bin" ]]; then
 fi
 
 if command -v uv >/dev/null 2>&1; then
-  requirements="$DIR/requirements-core.txt"
-  if [[ "${1:-}" == "structure" ]]; then
-    requirements="$DIR/requirements-cad.txt"
-  fi
   export ZW_PYTHON_SOURCE="uv"
   exec uv run --no-project --python 3.13 --with-requirements "$requirements" python -B -m zw_cli "$@"
 fi

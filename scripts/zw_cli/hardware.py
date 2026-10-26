@@ -135,21 +135,6 @@ def _display_values(guide, selected: dict) -> dict:
     return display
 
 
-def cmd_boards() -> CommandResult:
-    records = index.board_records()
-    warnings = []
-    for record in records:
-        if not record["skillName"]:
-            warnings.append(f"{record['displayName']} 缺少硬件资料包（{record['componentId']}）。")
-        if record["firmware"] and not record["firmware"].get("installed"):
-            warnings.append(f"{record['displayName']} 的固件镜像未下载到 resources/firmware。")
-    data = {
-        "count": len(records),
-        "boards": [{key: value for key, value in record.items() if key != "lookup"} for record in records],
-    }
-    return CommandResult(data=data, warnings=warnings)
-
-
 def cmd_search(query: str, *, board: str | None, category: str | None, limit: int) -> CommandResult:
     record = env.resolve_board(board) if board else None
     results, warnings = index.search(query, board=record, category=category, limit=limit)
@@ -260,7 +245,13 @@ def cmd_get(identifier: str, *, full: bool, file_path: str | None) -> CommandRes
     return CommandResult(data=data, warnings=warnings)
 
 
-def cmd_guide(identifier: str, *, board: str, setup_pairs: list[str]) -> CommandResult:
+def cmd_guide(
+    identifier: str,
+    *,
+    board: str,
+    setup_pairs: list[str],
+    kind: str | None = None,
+) -> CommandResult:
     mods = _upstream()
     record = env.resolve_board(board)
     package, detail = _detail(identifier)
@@ -278,6 +269,27 @@ def cmd_guide(identifier: str, *, board: str, setup_pairs: list[str]) -> Command
             3,
             details={"availableBoards": available},
         )
+    if kind is not None:
+        if kind not in {"functional", "diagnostic", "reference"}:
+            raise ZwError(
+                "REQUEST_INVALID",
+                f"--kind 必须是 functional/diagnostic/reference：{kind}",
+                "",
+                2,
+            )
+        actual = str(guide.get("kind"))
+        if actual != kind:
+            raise ZwError(
+                "GUIDE_KIND_MISMATCH",
+                f"{detail.displayName} 在 {record['displayName']} 上只有 {actual} 指南，没有 {kind}。",
+                "去掉 --kind 读取现有指南，或改用匹配的种类。",
+                4,
+                details={
+                    "requested": kind,
+                    "available": {"kind": actual, "title": guide.get("title")},
+                    "availableBoardIds": [item.get("boardId") for item in guides],
+                },
+            )
 
     setup = {}
     for pair in setup_pairs:

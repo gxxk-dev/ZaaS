@@ -3,6 +3,122 @@
   "boards": 5,
   "laserTemplates": ["finger-box", "panel-box", "plate", "round-tag", "rounded-box"],
   "cadTemplates": ["mpython-shell", "photo-stand", "servo-horizontal", "servo-side", "servo-vertical"],
+  "structureTemplates": {
+    "packaged": ["mpython-shell", "photo-stand", "servo-horizontal", "servo-side", "servo-vertical"],
+    "designSpec": ["box", "cup", "bracket"],
+    "boxDefaults": {"width": 80, "depth": 60, "height": 40, "thickness": 3}
+  },
+  "designSpecBox": {
+    "params": {"width": 40, "depth": 30, "height": 20},
+    "title": "开口收纳盒",
+    "files": ["model.step", "model.stl", "design-spec.json", "cadquery.py"]
+  },
+  "enclosureProfiles": {
+    "trusted": "xiao_esp32s3",
+    "packageProfile": "dfr0026_ambient_light_sensor",
+    "packageComponent": "hw_dfrobot_dfr0026"
+  },
+  "legacyLibrary": {
+    "profile": "xiao_esp32s3",
+    "category": "sensor",
+    "query": "xiao",
+    "missing": "no_such_profile"
+  },
+  "freeform": {
+    "request": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_stand",
+      "operations": [
+        {"primitive_id": "base", "op": "add", "shape": "rounded_box",
+         "size": [60, 40, 6], "center": [0, 0, 3], "corner_radius": 4},
+        {"primitive_id": "post", "op": "add", "shape": "cylinder",
+         "diameter": 8, "height": 30, "center": [0, 0, 20.9]},
+        {"primitive_id": "hole", "op": "cut", "shape": "cylinder",
+         "diameter": 4, "height": 10, "center": [0, 0, 25]}
+      ]
+    },
+    "negatives": {
+      "first_cut": {
+        "design_id": "bad_start",
+        "operations": [
+          {"primitive_id": "hole", "op": "cut", "shape": "cylinder",
+           "diameter": 4, "height": 10, "center": [0, 0, 0]}
+        ]
+      },
+      "duplicate_id": {
+        "design_id": "bad_dup",
+        "operations": [
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [0, 0, 0]},
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [5, 0, 0]}
+        ]
+      },
+      "bad_rotation": {
+        "design_id": "bad_rotation",
+        "operations": [
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [0, 0, 0], "rotation_z_deg": 45}
+        ]
+      },
+      "unknown_field": {
+        "design_id": "bad_field",
+        "operations": [
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [0, 0, 0], "radius": 4}
+        ]
+      }
+    },
+    "textRequest": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_text",
+      "operations": [
+        {"primitive_id": "plate", "op": "add", "shape": "box",
+         "size": [40, 30, 6], "center": [0, 0, 3]},
+        {"primitive_id": "label", "op": "cut", "shape": "text", "text": "掌问",
+         "font_size": 6, "depth": 0.6, "center": [0, 0, 6], "face": "top", "angle": 0}
+      ]
+    },
+    "textNoEffectRequest": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_text_off",
+      "operations": [
+        {"primitive_id": "plate", "op": "add", "shape": "box",
+         "size": [40, 30, 6], "center": [0, 0, 3]},
+        {"primitive_id": "label", "op": "cut", "shape": "text", "text": "掌问",
+         "font_size": 6, "depth": 0.6, "center": [100, 0, 6], "face": "top", "angle": 0}
+      ]
+    },
+    "badGlyphRequest": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_bad_glyph",
+      "operations": [
+        {"primitive_id": "plate", "op": "add", "shape": "box",
+         "size": [40, 30, 6], "center": [0, 0, 3]},
+        {"primitive_id": "label", "op": "cut", "shape": "text", "text": "͸",
+         "font_size": 6, "depth": 0.6, "center": [0, 0, 6], "face": "top", "angle": 0}
+      ]
+    },
+    "textBaseVolume": 7200.0,
+    "cadBuildFiles": [
+      "assembly.step", "geometry-summary.json", "manifest.json", "parameters.json",
+      "part.step", "part.stl", "preview.glb", "profiles.json", "request.json",
+      "spec.json", "validation.json"
+    ]
+  },
+  "firmware": {
+    "board": "k10",
+    "boardId": "hw_seed_unihiker_k10"
+  },
+  "boardSkills": {
+    "strictBoard": "k10",
+    "legacyBoard": "c3",
+    "contextQuery": "屏幕 绘图",
+    "contextProfile": "unihiker-k10",
+    "file": "references/03-screen-api.md",
+    "guideId": "dfrobot-dfr0299-k10",
+    "guideKind": "diagnostic"
+  },
   "dfr0026": {
     "query": "DFR0026",
     "board": "k10",
@@ -16,10 +132,63 @@
     "exit": 4,
     "diagnostic": "k10-screen"
   },
+  "codeFix": {
+    "mpythonSource": "from machine import Pin\np = Pin(0)\n",
+    "badArgsSource": "from unihiker_k10 import screen\nscreen.init(dir=2)\nscreen.text(\"x\", 0, 0, 1, 2)\n",
+    "syntaxSource": "def broken(:\n"
+  },
   "laserPlate": {
     "template": "plate",
     "params": {"width": 60, "depth": 40, "thickness": 3},
     "drawing": {"width": 70.0, "height": 50.0, "thickness": 3.0},
     "files": ["cut.svg", "cut.dxf", "preview.svg", "design.json"]
+  },
+  "laserText": {
+    "text": "掌问",
+    "size": 10,
+    "margin": 5,
+    "files": ["cut.svg", "cut.dxf", "preview.svg", "design.json"]
+  },
+  "laserRounded": {
+    "params": {"width": 50, "depth": 50, "height": 50, "thickness": 3, "corner_radius": 12}
+  },
+  "enclosure": {
+    "boxRequest": {
+      "design_id": "contract_box",
+      "components": [
+        {"profile_id": "xiao_esp32s3", "surface": "base_floor"},
+        {"profile_id": "grove_oled_096", "surface": "lid_inner"}
+      ],
+      "auto_size": true
+    },
+    "componentMountRequest": {
+      "design_id": "contract_mount",
+      "template": "component_mount",
+      "components": [{"profile_id": "xiao_esp32s3"}]
+    },
+    "componentMountCenterZ": 5.4,
+    "needsInputComponent": "hw_dfrobot_dfr0026_k10",
+    "k10ConflictRequest": {
+      "design_id": "contract_k10_conflict",
+      "components": [{"profile_id": "unihiker_k10", "surface": "lid_inner"}]
+    },
+    "k10DerivedRequest": {
+      "design_id": "contract_k10_derived",
+      "components": [
+        {"profile_id": "unihiker_k10", "surface": "lid_inner", "derive_mount": true}
+      ]
+    },
+    "leftNeedsCenterRequest": {
+      "design_id": "contract_left",
+      "components": [
+        {"profile_id": "unihiker_ultrasonic_distance_sensor", "surface": "left_inner"}
+      ]
+    },
+    "invalidSpec": {"design_id": "contract_bad_spec", "template": "freeform_structure"},
+    "cadBuildFiles": [
+      "assembly.step", "base.step", "base.stl", "geometry-summary.json",
+      "lid.step", "lid.stl", "manifest.json", "parameters.json", "preview.glb",
+      "profiles.json", "spec.json", "validation.json"
+    ]
   }
 }

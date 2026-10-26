@@ -10,8 +10,9 @@ import shutil
 import subprocess
 import sys
 
-from . import env, index
-from .envelope import CommandResult
+from . import cad as cad_cli
+from . import env, index, laser as laser_cli
+from .envelope import CommandResult, ZwError
 
 
 def _version(distribution: str, module: str | None = None) -> dict:
@@ -24,6 +25,14 @@ def _version(distribution: str, module: str | None = None) -> dict:
     except importlib.metadata.PackageNotFoundError:
         pass
     return {"installed": installed, "version": version}
+
+
+def _module(path: str) -> dict:
+    try:
+        installed = importlib.util.find_spec(path) is not None
+    except (ImportError, ValueError):
+        installed = False
+    return {"installed": installed, "version": None}
 
 
 def _command_version(command: str, args: tuple[str, ...] = ("--version",)) -> dict:
@@ -64,16 +73,29 @@ def cmd_status() -> CommandResult:
     data_dir = env.data_dir()
     catalog = index.catalog_status()
     boards = index.board_records()
-    templates_path = root / "services" / "structure-cad" / "templates" / "manifest.json"
     cad_templates = []
+    catalog_warnings = []
     try:
-        manifest = json.loads(templates_path.read_text(encoding="utf-8"))
+        template_catalog, catalog_warnings = cad_cli.list_templates()
         cad_templates = [
-            {"id": item["id"], "title": item["title"], "revision": item.get("revision")}
-            for item in manifest.get("templates", [])
+            {
+                "id": item["id"],
+                "title": item["title"],
+                "revision": item.get("revision"),
+            }
+            for item in template_catalog.get("templates", [])
         ]
-    except (OSError, ValueError, KeyError):
-        pass
+    except ZwError as exc:
+        catalog_warnings = [f"无法读取 CAD 模板目录：{exc.message}；已回退到模板清单。"]
+        templates_path = root / "services" / "structure-cad" / "templates" / "manifest.json"
+        try:
+            manifest = json.loads(templates_path.read_text(encoding="utf-8"))
+            cad_templates = [
+                {"id": item["id"], "title": item["title"], "revision": item.get("revision")}
+                for item in manifest.get("templates", [])
+            ]
+        except (OSError, ValueError, KeyError):
+            pass
 
     deps = {
         "pydantic": _version("pydantic"),
@@ -84,10 +106,11 @@ def cmd_status() -> CommandResult:
         "cadquery-ocp": _version("cadquery-ocp"),
         "numpy": _version("numpy"),
         "matplotlib": _version("matplotlib"),
+        "cad_engine": _module("zhangwen.cad_engine"),
     }
     font = root / "resources" / "fonts" / "NotoSansSC.ttf"
     release = _release(root)
-    warnings = []
+    warnings = list(catalog_warnings)
     if not release["version"]:
         warnings.append("未能从 version.json 读取掌问版本；本机可能不是完整安装。")
     if catalog["stale"]:
@@ -95,7 +118,9 @@ def cmd_status() -> CommandResult:
             f"目录缓存 {catalog['count']} 条 / 磁盘 {catalog['scanCount']} 包；搜索以磁盘为准，未自动刷新。"
         )
     if not deps["cadquery"]["installed"]:
-        warnings.append("未安装 CadQuery；structure 子命令不可用。")
+        warnings.append("未安装 CadQuery；structure 和 enclosure build 不可用。")
+    if not deps["cad_engine"]["installed"]:
+        warnings.append("缺少 zhangwen.cad_engine；需要掌问 V0.4.2026.1021.01 或更新版本，enclosure 不可用。")
     if not deps["fontTools"]["installed"]:
         warnings.append("未安装 fontTools；激光文字和模板刻字不可用。")
     if not font.is_file():
@@ -120,7 +145,7 @@ def cmd_status() -> CommandResult:
         "deps": deps,
         "font": {"path": str(font), "exists": font.is_file()},
         "templates": {
-            "laser": ["plate", "round-tag", "panel-box", "finger-box", "rounded-box"],
+            "laser": list(laser_cli.LASER_TEMPLATES),
             "cad": cad_templates,
         },
         "boards": [

@@ -1,4 +1,4 @@
-# 触发边界清单（20 条）
+# 触发边界清单（24 条）
 
 用于人工检查 `zhangwen` 与 `handpy` 的技能选择边界。实际触发由模型按 description 判断，本表是验收基准，不是自动化测试。
 
@@ -24,10 +24,14 @@
 | 18 | 掌问的 3D 模板有哪些参数 | zhangwen | `--list-params` |
 | 19 | ESP32-C3 通用板怎么点灯 | zhangwen | 掌问主控档案内的 C3 |
 | 20 | 掌问项目怎么启动 Web 工作台 | 不触发/说明不在范围 | v1 不做 Web UI |
+| 21 | 校验本地 K10 固件镜像的 sha256 | zhangwen | `firmware verify`，只读比对 |
+| 22 | K10 代码里的 screen.text 能不能自动修 | zhangwen | `code fix` 确定性修复 |
+| 23 | 用掌问做个带刻字的 freeform 支架 | zhangwen | freeform 请求 + 文字操作 |
+| 24 | 掌问的 legacy 几何资料库有哪些传感器 | zhangwen | `structure library` 只读目录 |
 
 ## 边界说明
 
-- **zhangwen** 的触发词：掌问、ZhangWen、硬件资料包、选型、接线、电气校验、模块指南、激光切割、3D 模板/外壳改造。
+- **zhangwen** 的触发词：掌问、ZhangWen、硬件资料包、选型、接线、电气校验、模块指南、固件校验、板级 Skill、代码检查/修复、激光切割、3D 模板/外壳改造、freeform 声明式实体/刻字、legacy 几何资料库。
 - **handpy** 的触发词：HandPy、mPython 板级 API、OLED/LCD/LVGL、内置传感器、SIoT、舵机、语音等模块。
 - 第 4、5 条是最容易混的：只要用户要的是“掌问资料包里的接线/选型/校验”，走 zhangwen；只要用户要的是“HandPy/mPython 的 API 用法”，走 handpy。
 - 第 11、12、20 条用于确认不会过度触发；掌问 skill 不替代通用 CadQuery 教程、pyrcli 文档或 Web 工作台。

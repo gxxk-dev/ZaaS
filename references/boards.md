@@ -10,7 +10,21 @@
 | 掌控板 2.0 | `hw_labplus_mpython_v2` | `labplus-mpython-v2` | `labplus-mpython-v2` | `mpython-v2` | `mpython2.bin`，mPython v2.6.0，offset 0 |
 | 掌控板 3.0 | `hw_labplus_mpython_esp32s3_v3` | `labplus-mpython-esp32s3-v3` | 无 | `mpython-v3` | `mpython3.bin`，offset 0（镜像以 `resources/firmware/manifest.json` 为准） |
 
-固件镜像都在 `$ZW_HOME/resources/firmware/`，本地存在时 `zw boards` 会标 `firmwareInstalled=true`。镜像的 `sha256`、大小和来源 URL 以 `resources/firmware/manifest.json` 为准。CLI 只报告元数据，不下载、不校验、不刷写。
+固件镜像都在 `$ZW_HOME/resources/firmware/`，本地存在时 `zw boards` 会标 `firmwareInstalled=true`。镜像的 `sha256`、大小和来源 URL 以 `resources/firmware/manifest.json` 为准。`zw firmware list/get` 只读展示元数据；`zw firmware verify` 只读比对本地文件的大小和 SHA-256，不下载、不刷写。
+
+## Board Skill 与编程参考
+
+```bash
+zw boards --board k10 --full --json
+zw boards --board k10 --full --file references/03-screen-api.md --json
+zw boards --board k10 --context "屏幕 绘图" --json
+```
+
+- `--full` 读取该主控的 Board Skill 包：`skill.layout` 为 `strict` 或 `legacy`，`files` 是 `{path,size,sha256}` 列表，`manifest` 原样返回，`entry` 是 `SKILL.md`（上限 16 000 字符）。
+- strict 布局（K10、XIAO）有 `CHECKSUMS.sha256`，`verified=true`；legacy 布局（C3、掌控板 2.0）没有校验和，只能按 manifest 清单重算摘要，`verified=false` + warning。不要把 legacy 说成已校验。
+- `--file` 只能读取 manifest 声明的路径，必须与 `--full` 同用；非 UTF-8 或超过 200 000 字符 → exit 4 `FILE_INVALID`。
+- `--context QUERY` 只支持 strict 布局，按查询返回 `instructions/references/templates/generationContract/policy`；legacy 或无 Board Skill → exit 4 `BOARD_SKILL_CONTEXT_UNAVAILABLE`。
+- `programmingContext` 是板级编程参考；XIAO/C3 为空，掌控板 3.0 没有 Board Skill 但仍有编程参考，均以 `null` + warning 降级。
 
 ## 常用别名
 

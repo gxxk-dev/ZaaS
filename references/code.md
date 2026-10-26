@@ -23,6 +23,19 @@ zw code check --board <板> --file main.py [--component <id> ...] --json
 
 `code check` 不做运行时验证，也不连接设备。
 
+## `code fix` 做什么
+
+```bash
+zw code fix --board k10 --file main.py --json
+zw code fix --board k10 --file main.py --out fixed.py --json
+```
+
+- 只处理 `programming_diagnostics` 中带 `repair` 键的已知问题：K10 的 `k10-screen`、掌控板 2.0 的 `mpython-pins`。
+- 先 `compile()`；语法错误、非 UTF-8 或源码超过 64 KiB → exit 4 `CODE_INVALID`，不做修复。
+- 最多 3 轮 fixpoint；每个 repair 键最多尝试一次。repair 函数因已修复、无法可靠改写或输出超 64 KiB 抛 `ValueError` 时，记入 `skipped` 并保留 `remaining`，命令仍 exit 0。
+- 默认只读，返回 `changed/applied/skipped/diff/after/afterSha256/diagnostics/remaining`。`--out FILE` 只接受**不存在**的文件，不覆盖、不支持 `--force`；目标在 `$ZW_HOME` 内 → exit 6 `OUT_IN_REPO`。
+- exit 0 只表示修复流程完成，不代表诊断清零、代码已运行或已上板。修复结果是确定性预览改写，必须人工复核后再交给 `pyrcli`。
+
 ## 板级 API 速查
 
 ### 行空板 K10
