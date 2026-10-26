@@ -166,6 +166,15 @@ def _parser() -> argparse.ArgumentParser:
     structure_templates.set_defaults(
         func=_structure_templates, command="structure templates"
     )
+    structure_library = structure_sub.add_parser(
+        "library", parents=[common], help="legacy 几何资料库（只读）"
+    )
+    structure_library.add_argument("profile_id", nargs="?")
+    structure_library.add_argument("--category", help="按 category 精确匹配，不区分大小写")
+    structure_library.add_argument("--query", help="按 id/name 子串搜索，不区分大小写")
+    structure_library.set_defaults(
+        func=_structure_library, command="structure library"
+    )
     template = structure_sub.add_parser("template", parents=[common], help="固定模板与受约束改造")
     template.add_argument("identifier")
     template.add_argument("--edit", help="TemplateEditSpec JSON 文件，或 -")
@@ -220,6 +229,16 @@ def _laser_build(args) -> CommandResult:
 
 def _structure_templates(_args) -> CommandResult:
     return cad_cli.cmd_templates()
+
+
+def _structure_library(args) -> CommandResult:
+    from . import library
+
+    return library.cmd_library(
+        args.profile_id,
+        category=args.category,
+        query=args.query,
+    )
 
 
 def _structure_template(args) -> CommandResult:
@@ -412,6 +431,15 @@ def _human(command: str, payload: dict) -> None:
         print(f"画布: {canvas.get('width')} × {canvas.get('height')} mm")
         for key, path in (data.get("exports") or {}).items():
             print(f"  {key}: {path}")
+    elif command == "structure library":
+        if data.get("profile"):
+            profile = data["profile"]
+            print(f"{profile.get('name')} ({profile.get('id')})  [{profile.get('category')}]")
+            print("dimensions_mm: " + json.dumps(profile.get("dimensions_mm") or {}, ensure_ascii=False))
+        else:
+            print(f"legacy profile {data.get('count', 0)} 个")
+            for item in data.get("profiles", []):
+                print(f"  {item.get('id'):<32} [{item.get('category')}] {item.get('name')}")
     elif command == "structure templates":
         print(f"结构模板 {data.get('count', 0)} 个")
         for item in data.get("templates", []):

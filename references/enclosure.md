@@ -25,7 +25,7 @@ zw enclosure build --spec FILE|-   --out DIR [--json]
 
 `profiles` 输出 `count/profiles`。每项给 `profileId/displayName/category/roles/source/revision/dimensions/mounting/modelKind`；资料包来源另有 `componentId/skillName/verificationStatus/ambiguous/shadowed`。`ambiguous: true` 表示同一 `profile_id` 在多个资料包中内容不一致，`enclosure` 会拒绝该 id。`shadowed: true` 表示该 id 已被 trusted profile 覆盖，资料包条目只作参考。`verificationStatus` 是包级声明，不等于实测。
 
-旧版 `services/structure-cad/server/data/hardware-library.json` 的几何资料**不是** `HardwareProfile`，`enclosure` 不读取它；本命令也不会混入这些条目。不要把旧资料库当作可用的安装 profile。
+旧版 `services/structure-cad/server/data/hardware-library.json` 的几何资料**不是** `HardwareProfile`，`enclosure` 不读取它；本命令也不会混入这些条目。需要查看旧资料库时用只读的 `zw structure library`（见 `references/cad.md`），不要把旧资料库当作可用的安装 profile。
 
 `--out` 必须不存在或为空；**没有 `--force`**，也不允许 `--allow-in-repo`。`resolve_out` 会拒绝非空目录和 `$ZW_HOME` 内的路径（exit 6）。
 

@@ -223,6 +223,7 @@ def _check_structure_catalog() -> None:
 
     routes = {
         ("structure", "templates"): "core",
+        ("structure", "library"): "core",
         ("enclosure", "profiles"): "core",
         ("enclosure", "plan"): "core",
         ("structure", "template"): "cad",
@@ -234,6 +235,69 @@ def _check_structure_catalog() -> None:
         if actual != expected_route:
             fail(f"launcher 分流 {args} = {actual!r}，期望 {expected_route!r}")
     print("ok launcher requirements")
+
+
+def _check_library() -> None:
+    case = EXPECTED["legacyLibrary"]
+    code, payload = run("structure", "library")
+    data = expect_ok("structure library", payload)
+    profiles = data.get("profiles") or []
+    if code != 0 or not profiles or data.get("count") != len(profiles):
+        fail(f"structure library 列表不符：exit={code} count={data.get('count')}")
+    if data.get("source") != "legacy-hardware-library":
+        fail("structure library 缺少 source")
+    required = {
+        "id", "name", "category", "roles", "dimensions_mm",
+        "thumbnail_url", "source_status", "integration_status",
+    }
+    if not required <= set(profiles[0]):
+        fail(f"structure library 列表字段不完整：{sorted(set(profiles[0]))}")
+    if not any("enclosure profiles" in warning for warning in payload.get("warnings") or []):
+        fail("structure library 缺少 legacy/enclosure warning")
+    if not payload.get("readOnly") or payload.get("writes"):
+        fail("structure library 不是只读")
+    print("ok structure library")
+
+    code, payload = run("structure", "library", "--category", case["category"])
+    data = expect_ok("structure library category", payload)
+    rows = data.get("profiles") or []
+    if code != 0 or not rows or any(item.get("category") != case["category"] for item in rows):
+        fail(f"structure library --category 不符：exit={code} rows={len(rows)}")
+    print("ok structure library category")
+
+    code, payload = run("structure", "library", "--query", case["query"])
+    data = expect_ok("structure library query", payload)
+    rows = data.get("profiles") or []
+    needle = case["query"].lower()
+    if code != 0 or not rows or any(
+        needle not in item["id"].lower() and needle not in item["name"].lower()
+        for item in rows
+    ):
+        fail(f"structure library --query 不符：exit={code} rows={len(rows)}")
+    print("ok structure library query")
+
+    code, payload = run("structure", "library", case["profile"])
+    data = expect_ok("structure library profile", payload)
+    profile = data.get("profile") or {}
+    if code != 0 or profile.get("id") != case["profile"]:
+        fail(f"structure library profile 不符：exit={code} id={profile.get('id')}")
+    if (data.get("library") or {}).get("units") != "mm":
+        fail("structure library 单条缺少 library.units")
+    if not isinstance(profile.get("dimensions_mm"), dict):
+        fail("structure library 单条缺少 dimensions_mm")
+    print("ok structure library profile")
+
+    code, payload = run("structure", "library", case["profile"], "--category", "sensor")
+    if code != 2 or _error_code(payload) != "REQUEST_INVALID":
+        fail(f"structure library 互斥负例不符：exit={code} code={_error_code(payload)}")
+    code, payload = run("structure", "library", case["missing"])
+    if code != 3 or _error_code(payload) != "PROFILE_NOT_FOUND":
+        fail(f"structure library 缺 profile 负例不符：exit={code} code={_error_code(payload)}")
+    code, payload = run("structure", "library", "--category", "no_such_category")
+    data = expect_ok("structure library empty", payload)
+    if code != 0 or data.get("count") != 0 or not payload.get("warnings"):
+        fail(f"structure library 空过滤不符：exit={code} count={data.get('count')}")
+    print("ok structure library negatives")
 
 
 def _check_enclosure(case: dict) -> None:
@@ -458,6 +522,7 @@ def main() -> int:
     _check_firmware()
     _check_board_skills()
     _check_structure_catalog()
+    _check_library()
 
     with tempfile.TemporaryDirectory(prefix="zw-contract-") as tmp:
         tmp_dir = Path(tmp)

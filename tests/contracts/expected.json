@@ -18,6 +18,12 @@
     "packageProfile": "dfr0026_ambient_light_sensor",
     "packageComponent": "hw_dfrobot_dfr0026"
   },
+  "legacyLibrary": {
+    "profile": "xiao_esp32s3",
+    "category": "sensor",
+    "query": "xiao",
+    "missing": "no_such_profile"
+  },
   "firmware": {
     "board": "k10",
     "boardId": "hw_seed_unihiker_k10"
