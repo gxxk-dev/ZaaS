@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from hashlib import sha256
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -228,6 +229,8 @@ def _check_structure_catalog() -> None:
         ("enclosure", "plan"): "core",
         ("structure", "template"): "cad",
         ("structure", "solid"): "cad",
+        ("structure", "freeform", "plan"): "core",
+        ("structure", "freeform", "build"): "cad",
         ("enclosure", "build"): "cad",
     }
     for args, expected_route in routes.items():
@@ -298,6 +301,106 @@ def _check_library() -> None:
     if code != 0 or data.get("count") != 0 or not payload.get("warnings"):
         fail(f"structure library 空过滤不符：exit={code} count={data.get('count')}")
     print("ok structure library negatives")
+
+
+def _canonical_sha256(value: dict) -> str:
+    encoded = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return sha256(encoded).hexdigest()
+
+
+def _check_freeform() -> None:
+    case = EXPECTED["freeform"]
+    with tempfile.TemporaryDirectory(prefix="zw-freeform-") as tmp:
+        root = Path(tmp)
+        request = _write_request(root, "request.json", case["request"])
+
+        code, payload = run("structure", "freeform", "plan", "--request", str(request))
+        data = expect_ok("freeform plan", payload)
+        if code != 0 or not payload.get("readOnly") or payload.get("writes"):
+            fail(f"freeform plan 不是只读：exit={code} writes={payload.get('writes')}")
+        if data.get("design_id") != case["request"]["design_id"]:
+            fail(f"freeform plan design_id={data.get('design_id')}")
+        if data.get("template") != "freeform_structure" or data.get("template_revision") != "freeform-structure.v1":
+            fail(f"freeform plan 模板不符：{data.get('template')}/{data.get('template_revision')}")
+        primitives = (data.get("spec") or {}).get("freeform_geometry", {}).get("primitives") or []
+        if len(primitives) != len(case["request"]["operations"]):
+            fail(f"freeform plan primitives={len(primitives)}")
+        if not (data.get("validation") or {}).get("ok"):
+            fail("freeform plan validation 未通过")
+
+        code, again = run("structure", "freeform", "plan", "--request", str(request))
+        again_data = expect_ok("freeform plan repeat", again)
+        if json.dumps(data.get("spec"), sort_keys=True) != json.dumps(again_data.get("spec"), sort_keys=True):
+            fail("freeform plan 两次 spec 不一致")
+        print("ok freeform plan")
+
+        for name, body in case["negatives"].items():
+            path = _write_request(root, f"{name}.json", body)
+            code, payload = run("structure", "freeform", "plan", "--request", str(path))
+            if code != 2 or _error_code(payload) != "REQUEST_INVALID":
+                fail(f"freeform {name} 负例不符：exit={code} code={_error_code(payload)}")
+        print("ok freeform negatives")
+
+        nonempty = root / "nonempty"
+        nonempty.mkdir()
+        (nonempty / "keep.txt").write_text("keep", encoding="utf-8")
+        code, payload = run(
+            "structure", "freeform", "build", "--request", str(request), "--out", str(nonempty),
+        )
+        if code != 6 or _error_code(payload) != "OUT_NOT_EMPTY":
+            fail(f"freeform OUT_NOT_EMPTY 负例不符：exit={code} code={_error_code(payload)}")
+        if not (nonempty / "keep.txt").is_file():
+            fail("freeform 非空目录负例改动了原文件")
+
+        code, payload = run("structure", "freeform", "build", "--out", str(root / "no-mode"))
+        if code != 2 or _error_code(payload) != "REQUEST_INVALID":
+            fail(f"freeform 缺少输入负例不符：exit={code} code={_error_code(payload)}")
+        print("ok freeform out boundary")
+
+        if os.environ.get("ZW_CONTRACT_CAD") == "1":
+            out = root / "cad-out"
+            code, payload = run(
+                "structure", "freeform", "build", "--request", str(request), "--out", str(out),
+            )
+            data = expect_ok("freeform build", payload)
+            if code != 0:
+                fail(f"freeform build exit={code}")
+            missing = [name for name in case["cadBuildFiles"] if not (out / name).is_file()]
+            if missing:
+                fail(f"freeform build 缺少文件：{missing}")
+            if data.get("design_id") != case["request"]["design_id"] or data.get("template") != "freeform_structure":
+                fail(f"freeform build 标识不符：{data.get('design_id')}/{data.get('template')}")
+            spec_doc = json.loads((out / "spec.json").read_text(encoding="utf-8"))
+            if spec_doc.get("schema") != "zw.freeform-spec/v1" or spec_doc.get("textOperations") != []:
+                fail(f"freeform spec.json 包装不符：{spec_doc.get('schema')}")
+            spec = spec_doc.get("spec") or {}
+            if spec.get("template") != "freeform_structure" or spec.get("template_revision") != "freeform-structure.v1":
+                fail(f"freeform spec.json 模板不符：{spec.get('template')}/{spec.get('template_revision')}")
+            digest = _canonical_sha256(spec_doc)
+            if data.get("specSha256") != digest:
+                fail(f"freeform specSha256 不符：{data.get('specSha256')} != {digest}")
+            if (data.get("manifest") or {}).get("spec_sha256") != digest:
+                fail("freeform manifest.spec_sha256 与 spec.json 不一致")
+            request_doc = json.loads((out / "request.json").read_text(encoding="utf-8"))
+            if request_doc.get("design_id") != case["request"]["design_id"]:
+                fail("freeform request.json design_id 不符")
+
+            second = root / "cad-rebuild"
+            code, payload = run(
+                "structure", "freeform", "build", "--spec", str(out / "spec.json"), "--out", str(second),
+            )
+            rebuild = expect_ok("freeform rebuild", payload)
+            if code != 0 or rebuild.get("specSha256") != digest:
+                fail(f"freeform rebuild sha 不一致：{digest} != {rebuild.get('specSha256')}")
+            if (second / "request.json").exists():
+                fail("freeform --spec 不应写 request.json")
+            if not (rebuild.get("validation") or {}).get("ok"):
+                fail("freeform rebuild validation 未通过")
+            print("ok freeform cad build")
+        else:
+            print("skip freeform cad build (ZW_CONTRACT_CAD != 1)")
 
 
 def _check_enclosure(case: dict) -> None:
@@ -523,6 +626,7 @@ def main() -> int:
     _check_board_skills()
     _check_structure_catalog()
     _check_library()
+    _check_freeform()
 
     with tempfile.TemporaryDirectory(prefix="zw-contract-") as tmp:
         tmp_dir = Path(tmp)

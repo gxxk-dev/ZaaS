@@ -15,9 +15,12 @@ requirements="$DIR/requirements-core.txt"
 select_requirements() {
   local group="${1:-}"
   local sub="${2:-}"
+  local action="${3:-}"
   requirements="$DIR/requirements-core.txt"
   if [[ "$group" == "structure" ]]; then
     if [[ "$sub" == "template" || "$sub" == "solid" ]]; then
+      requirements="$DIR/requirements-cad.txt"
+    elif [[ "$sub" == "freeform" && "$action" == "build" ]]; then
       requirements="$DIR/requirements-cad.txt"
     fi
   elif [[ "$group" == "enclosure" && "$sub" == "build" ]]; then

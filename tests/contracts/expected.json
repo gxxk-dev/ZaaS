@@ -24,6 +24,57 @@
     "query": "xiao",
     "missing": "no_such_profile"
   },
+  "freeform": {
+    "request": {
+      "schema": "zw.freeform-request/v1",
+      "design_id": "contract_stand",
+      "operations": [
+        {"primitive_id": "base", "op": "add", "shape": "rounded_box",
+         "size": [60, 40, 6], "center": [0, 0, 3], "corner_radius": 4},
+        {"primitive_id": "post", "op": "add", "shape": "cylinder",
+         "diameter": 8, "height": 30, "center": [0, 0, 20.9]},
+        {"primitive_id": "hole", "op": "cut", "shape": "cylinder",
+         "diameter": 4, "height": 10, "center": [0, 0, 25]}
+      ]
+    },
+    "negatives": {
+      "first_cut": {
+        "design_id": "bad_start",
+        "operations": [
+          {"primitive_id": "hole", "op": "cut", "shape": "cylinder",
+           "diameter": 4, "height": 10, "center": [0, 0, 0]}
+        ]
+      },
+      "duplicate_id": {
+        "design_id": "bad_dup",
+        "operations": [
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [0, 0, 0]},
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [5, 0, 0]}
+        ]
+      },
+      "bad_rotation": {
+        "design_id": "bad_rotation",
+        "operations": [
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [0, 0, 0], "rotation_z_deg": 45}
+        ]
+      },
+      "unknown_field": {
+        "design_id": "bad_field",
+        "operations": [
+          {"primitive_id": "base", "op": "add", "shape": "box",
+           "size": [10, 10, 10], "center": [0, 0, 0], "radius": 4}
+        ]
+      }
+    },
+    "cadBuildFiles": [
+      "assembly.step", "geometry-summary.json", "manifest.json", "parameters.json",
+      "part.step", "part.stl", "preview.glb", "profiles.json", "request.json",
+      "spec.json", "validation.json"
+    ]
+  },
   "firmware": {
     "board": "k10",
     "boardId": "hw_seed_unihiker_k10"

@@ -1,6 +1,6 @@
 # Python CAD
 
-`zw structure` 有三类输入：**固定模板**（可参数化、可受约束改造）、**design-spec 模板**（`box`/`cup`/`bracket` 的确定性实体）和**参数化实体**（box/cylinder/sphere 的加料/挖料）。三者都只输出名义几何，不做打印公差、材料收缩或强度校验。
+`zw structure` 有四类输入：**固定模板**（可参数化、可受约束改造）、**design-spec 模板**（`box`/`cup`/`bracket` 的确定性实体）、**参数化实体**（box/cylinder/sphere 的加料/挖料）和 **freeform 声明式实体**（`freeform.md` 的 1–32 个 primitive）。它们都只输出名义几何，不做打印公差、材料收缩或强度校验。
 
 由已选硬件自动生成“带开孔、上盖和螺丝柱的封闭盒子”，或单器件安装座，用 `zw enclosure`（见 `references/enclosure.md`），不要用 `structure solid` 手拼。`structure solid` 保留给没有机械 profile 的自定义 CSG。
 
@@ -215,6 +215,23 @@ zw structure solid --spec spec.json --out DIR --json
 ```
 
 该模板不能带 `enclosure`、`component_mount`、`freeform_geometry`、`standoffs`、`openings`、`profiles` 或 `hardware`。它和打包的 `photo-stand` 模板是两套不同几何：`photo-stand` 走 `structure template`，可改 57 个顶层参数；`unihiker_k10_photo_album` 是上游固定件，只能整体构建。
+
+## freeform 声明式实体
+
+没有固定模板、也没有机械 profile 的自定义支架用 `zw structure freeform`：
+
+```bash
+zw structure freeform plan  --request freeform.json --json
+zw structure freeform build --request freeform.json --out DIR --json
+zw structure freeform build --spec DIR/spec.json --out DIR2 --json
+```
+
+请求是 `zw.freeform-request/v1`（见 `references/freeform.md`），支持 `box` / `rounded_box` / `cylinder` 的 `add` / `cut`，最多 32 个操作，首个必须是 `add`。`plan` 不需要 CadQuery；`build` 才生成 STEP/STL/GLB。与 `structure solid` 的区别：
+
+- `structure solid` 走上游 `DesignSpec`，只接受 box/cylinder/sphere，且不能带文字操作。
+- `structure freeform` 走 `CadBuildSpec(template="freeform_structure")`，带 `role`、`rotation_z_deg`、`rounded_box`，并在 `--out` 内额外写 `spec.json`/`request.json` sidecar，便于回建。
+
+`build --spec` 只接受 `template="freeform_structure"`、`template_revision="freeform-structure.v1"`；其他模板用 `enclosure build --spec`。
 
 ## 输出与声明
 

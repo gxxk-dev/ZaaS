@@ -175,6 +175,19 @@ def _parser() -> argparse.ArgumentParser:
     structure_library.set_defaults(
         func=_structure_library, command="structure library"
     )
+    freeform = structure_sub.add_parser(
+        "freeform", help="声明式 freeform 几何（plan 只读 / build 需 CadQuery）"
+    )
+    freeform_sub = freeform.add_subparsers(dest="freeform_command", required=True)
+    ff_plan = freeform_sub.add_parser("plan", parents=[common], help="校验请求并返回 spec/layout")
+    ff_plan.add_argument("--request", required=True, help="请求 JSON 文件，或 -")
+    ff_plan.set_defaults(func=_structure_freeform_plan, command="structure freeform plan")
+    ff_build = freeform_sub.add_parser("build", parents=[common], help="生成 STEP/STL/GLB")
+    ff_source = ff_build.add_mutually_exclusive_group()
+    ff_source.add_argument("--request", help="请求 JSON 文件，或 -")
+    ff_source.add_argument("--spec", help="zw.freeform-spec/v1 或裸 CadBuildSpec 文件，或 -")
+    ff_build.add_argument("--out", required=True)
+    ff_build.set_defaults(func=_structure_freeform_build, command="structure freeform build")
     template = structure_sub.add_parser("template", parents=[common], help="固定模板与受约束改造")
     template.add_argument("identifier")
     template.add_argument("--edit", help="TemplateEditSpec JSON 文件，或 -")
@@ -238,6 +251,22 @@ def _structure_library(args) -> CommandResult:
         args.profile_id,
         category=args.category,
         query=args.query,
+    )
+
+
+def _structure_freeform_plan(args) -> CommandResult:
+    from . import freeform
+
+    return freeform.cmd_plan(args.request)
+
+
+def _structure_freeform_build(args) -> CommandResult:
+    from . import freeform_build
+
+    return freeform_build.cmd_build(
+        request_value=args.request,
+        spec_value=args.spec,
+        out_value=args.out,
     )
 
 
@@ -431,6 +460,16 @@ def _human(command: str, payload: dict) -> None:
         print(f"画布: {canvas.get('width')} × {canvas.get('height')} mm")
         for key, path in (data.get("exports") or {}).items():
             print(f"  {key}: {path}")
+    elif command == "structure freeform plan":
+        spec = data.get("spec") or {}
+        geometry = spec.get("freeform_geometry") or {}
+        print(f"{data.get('design_id')}  {data.get('template')} @ {data.get('template_revision')}")
+        print(f"primitives: {len(geometry.get('primitives') or [])}")
+        print(f"validation: {'ok' if (data.get('validation') or {}).get('ok') else 'FAIL'}")
+    elif command == "structure freeform build":
+        print(f"{data.get('design_id')} -> {data.get('out')}")
+        for path in data.get("files") or []:
+            print(f"  {path}")
     elif command == "structure library":
         if data.get("profile"):
             profile = data["profile"]

@@ -13,7 +13,7 @@
 
 启动器按顺序选解释器：`ZW_PYTHON` → `$ZW_HOME/.venv/bin/python` → `uv run --no-project --python 3.13 --with-requirements ...`。都没有则 exit 5。
 
-所有命令默认只读。只有 `laser build`、`structure template`、`structure solid`、`enclosure build` 会写盘，且只写 `--out`。
+所有命令默认只读。只有显式提供 `--out` 的 `laser build`、`laser text`、`code fix`、`structure template`、`structure solid`、`enclosure build`、`structure freeform build` 会写盘，且只写 `--out`。
 
 ## JSON 信封
 
@@ -80,6 +80,7 @@ zw structure library [--category C] [--query Q] --json
 zw structure library <profile_id> --json
 zw enclosure profiles --json
 zw enclosure plan --request FILE|- --json
+zw structure freeform plan --request FILE|- --json
 ```
 
 - `status` 额外报告 `zhangwenVersion` 与 `zhangwenReleaseNotes`，来自 `$ZW_HOME/version.json`；读不到版本会给出 warning。当前 ZaaS 已在 `V0.4.2026.1021.01` 上验证。
@@ -94,6 +95,7 @@ zw enclosure plan --request FILE|- --json
 - `structure templates` 只读列出 5 个打包模板与 `box/cup/bracket` 三个 design-spec 模板；不需要 CadQuery。`structure library` 只读暴露 `services/structure-cad/server/data/hardware-library.json` 的 legacy 资料，不是 `HardwareProfile`，`enclosure` 不读取。`enclosure profiles` 只读列出 5 个 trusted profile 与资料包 mechanical profile；不读取 legacy 几何资料库。三者都走 core 依赖。
 - `structure library` 的 `<profile_id>` 与 `--category/--query` 互斥；缺文件 exit 5 `LIBRARY_MISSING`，损坏 exit 7 `LIBRARY_INVALID`，id 不存在 exit 3 `PROFILE_NOT_FOUND`，过滤无匹配 exit 0 + warning。
 - `enclosure plan` 只读、无 CadQuery 依赖；缺机械数据时 exit 4 `NEEDS_INPUT`，见 `enclosure.md`。
+- `structure freeform plan` 只读、无 CadQuery 依赖，校验 `zw.freeform-request/v1` 请求、布局和设计规则；连通性与切割相交仍需 `build`。见 `freeform.md`。
 
 ## 产出命令
 
@@ -110,6 +112,9 @@ zw structure solid --template box|cup|bracket [--params JSON] --out DIR [--json]
 
 zw enclosure build --request FILE|- --out DIR [--json]
 zw enclosure build --spec FILE|-   --out DIR [--json]
+
+zw structure freeform build --request FILE|- --out DIR [--json]
+zw structure freeform build --spec FILE|-   --out DIR [--json]
 ```
 
 - `--params` 可写内联 JSON 或 `@file.json`；`structure solid` 还接受 `-`。`--spec` 与 `--template` 互斥且必须提供一个；未知模板 exit 3 `TEMPLATE_NOT_FOUND`，非法参数 exit 4 `PARAM_INVALID`。
@@ -118,11 +123,13 @@ zw enclosure build --spec FILE|-   --out DIR [--json]
 - `--edit` / `--spec` 接受文件路径或 `-`（stdin）。
 - `--out` 默认拒绝非空目录；加 `--force` 才覆盖同名文件。
 - `--out` 位于 `$ZW_HOME` 内时默认拒绝；只有显式 `--allow-in-repo` 才允许。
-- `enclosure build` 例外：`--out` 必须为空或不存在，**没有 `--force`/`--allow-in-repo`**。
+- `enclosure build` / `structure freeform build` 例外：`--out` 必须为空或不存在，**没有 `--force`/`--allow-in-repo`**。
+- `structure freeform build --request` 先规划再构建；`--spec` 接受 `zw.freeform-spec/v1` 包装或裸 freeform `CadBuildSpec`，只接受 `template="freeform_structure"` 与 `template_revision="freeform-structure.v1"`。
 - `--list-params` 只读，不写盘，输出该固定模板的全部顶层数值参数和部件。
 - `structure template` 会写 `template-<part>.step/.stl`、`cadquery.py`、`template-edit.json`。
 - `structure solid` 会写 `model.step`、`model.stl`、`design-spec.json`、`cadquery.py`。
 - `enclosure build` 会写 `assembly.step`、`base/lid.step/.stl`、`preview.glb`、`parameters.json`、`profiles.json`、`validation.json`、`geometry-summary.json`、`manifest.json`、`spec.json`。
+- `structure freeform build` 会写引擎产出的 `part.step`、`part.stl`、`assembly.step`、`preview.glb`、`geometry-summary.json`、`parameters.json`、`profiles.json`、`validation.json`、`manifest.json`，另写 `spec.json` 和（请求模式）`request.json`。
 
 ## 边界
 
@@ -131,5 +138,5 @@ zw enclosure build --spec FILE|-   --out DIR [--json]
 - 不调用 `list_skills`、`render_context`、`list_active_context_candidates`、`refresh_active_catalog`、任何 `install_*`/`update_*`/`save_*`/`migrate_*`。
 - 目录缓存只读；缓存 255 条 vs 磁盘 260 包时只报告 `stale=true`，绝不刷新。
 - v1 不调用 Node；`services/structure-cad/worker.mjs` 的自动外壳管线不在 CLI 内。
-- `enclosure` 只调用 Python 的 `zhangwen.cad_engine`；不启动 FastAPI，不调用模型 API，不写 `$ZW_HOME`。
+- `enclosure` 与 `structure freeform` 只调用 Python 的 `zhangwen.cad_engine`；不启动 FastAPI，不调用模型 API，不写 `$ZW_HOME`。
 - 设备 I/O 不在 `zw` 内；见 `device.md` 的 `pyrcli` 命令。
