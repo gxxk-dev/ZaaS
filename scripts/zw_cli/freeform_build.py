@@ -390,11 +390,13 @@ def cmd_build(
             writes=_out_files(out),
         ) from exc
 
-    spec_file = _write_json(out / "spec.json", wrapper)
-    names = [entry.file_name for entry in artifacts.manifest.files] + ["spec.json"]
-    request_file = None
+    _write_json(out / "spec.json", wrapper)
+    names = [entry.file_name for entry in artifacts.manifest.files] + [
+        "manifest.json",
+        "spec.json",
+    ]
     if request_payload is not None:
-        request_file = _write_json(out / "request.json", request_payload)
+        _write_json(out / "request.json", request_payload)
         names.append("request.json")
 
     data = {

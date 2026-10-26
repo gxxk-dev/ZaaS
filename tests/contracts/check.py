@@ -389,6 +389,12 @@ def _check_freeform() -> None:
             missing = [name for name in case["cadBuildFiles"] if not (out / name).is_file()]
             if missing:
                 fail(f"freeform build 缺少文件：{missing}")
+            reported = data.get("files") or []
+            for name in ("manifest.json", "spec.json", "request.json"):
+                if name not in reported:
+                    fail(f"freeform build files 未报告 {name}")
+            if len(payload.get("writes") or []) != len(reported):
+                fail("freeform build writes 与 files 数量不一致")
             if data.get("design_id") != case["request"]["design_id"] or data.get("template") != "freeform_structure":
                 fail(f"freeform build 标识不符：{data.get('design_id')}/{data.get('template')}")
             spec_doc = json.loads((out / "spec.json").read_text(encoding="utf-8"))
