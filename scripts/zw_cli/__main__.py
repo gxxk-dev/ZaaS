@@ -97,6 +97,15 @@ def _parser() -> argparse.ArgumentParser:
         command="code check",
     )
 
+    fix = code_sub.add_parser("fix", parents=[common], help="确定性修复已知板级问题（只读，可选 --out）")
+    fix.add_argument("--board", required=True)
+    fix.add_argument("--file", required=True, help="源文件，或 - 读 stdin")
+    fix.add_argument("--out", dest="out_path", help="把修复结果写入不存在的文件")
+    fix.set_defaults(
+        func=lambda a: code.cmd_fix(a.board, file=a.file, out_value=a.out_path),
+        command="code fix",
+    )
+
     laser = groups.add_parser("laser", help="激光切割图纸")
     laser_sub = laser.add_subparsers(dest="laser_command", required=True)
     build = laser_sub.add_parser("build", parents=[common], help="生成 SVG/DXF")
@@ -284,6 +293,17 @@ def _human(command: str, payload: dict) -> None:
             print(f"  [{item['severity']}] {item['code']}{line}: {item['message']}")
         for item in data.get("hardwareChecks", []):
             print(f"  [{item['severity']}] {item['dimension']}: {item['message']}")
+    elif command == "code fix":
+        print(f"{'CHANGED' if data.get('changed') else 'NO CHANGE'}  {data.get('source')}  sha256={data.get('afterSha256', '')[:12]}")
+        for item in data.get("applied", []):
+            print(f"  applied: {item.get('repair')}")
+        for item in data.get("skipped", []):
+            print(f"  skipped: {item.get('repair')} — {item.get('reason')}")
+        for item in data.get("remaining", []):
+            line = f" line {item['line']}" if item.get("line") else ""
+            print(f"  remaining [{item.get('severity')}] {item.get('repair') or 'programming'}{line}: {item.get('message')}")
+        if data.get("out"):
+            print(f"输出: {data.get('out')}")
     elif command == "structure template" and "parameters" in data:
         template = data.get("template", {})
         print(f"{template.get('title')} ({template.get('id')})")

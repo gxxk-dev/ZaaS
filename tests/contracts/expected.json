@@ -20,6 +20,11 @@
     "exit": 4,
     "diagnostic": "k10-screen"
   },
+  "codeFix": {
+    "mpythonSource": "from machine import Pin\np = Pin(0)\n",
+    "badArgsSource": "from unihiker_k10 import screen\nscreen.init(dir=2)\nscreen.text(\"x\", 0, 0, 1, 2)\n",
+    "syntaxSource": "def broken(:\n"
+  },
   "laserPlate": {
     "template": "plate",
     "params": {"width": 60, "depth": 40, "thickness": 3},

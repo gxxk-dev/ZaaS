@@ -319,6 +319,7 @@ def main() -> int:
     _check_firmware()
 
     with tempfile.TemporaryDirectory(prefix="zw-contract-") as tmp:
+        tmp_dir = Path(tmp)
         bad = Path(tmp) / "bad.py"
         bad.write_text(EXPECTED["k10BadCode"]["source"], encoding="utf-8")
         code, payload = run("code", "check", "--board", "k10", "--file", str(bad))
@@ -328,6 +329,69 @@ def main() -> int:
         if EXPECTED["k10BadCode"]["diagnostic"] not in codes:
             fail(f"code check 诊断缺失：{codes}")
         print("ok code check")
+
+        fix_source = tmp_dir / "fix.py"
+        fix_source.write_text(EXPECTED["k10BadCode"]["source"], encoding="utf-8")
+        code, payload = run("code", "fix", "--board", "k10", "--file", str(fix_source))
+        data = expect_ok("code fix", payload)
+        applied = [item.get("repair") for item in data.get("applied") or []]
+        if code != 0 or not data.get("changed") or "k10-screen" not in applied:
+            fail(f"code fix 结果不符：exit={code} data={data}")
+        if payload.get("writes") or not payload.get("readOnly"):
+            fail(f"code fix 默认不是只读：writes={payload.get('writes')}")
+        if "screen.text(" in (data.get("after") or ""):
+            fail("code fix 未替换 screen.text")
+        if not data.get("diff"):
+            fail("code fix 缺少 diff")
+        print("ok code fix")
+
+        pins_source = tmp_dir / "pins.py"
+        pins_source.write_text(EXPECTED["codeFix"]["mpythonSource"], encoding="utf-8")
+        code, payload = run("code", "fix", "--board", "mpython", "--file", str(pins_source))
+        data = expect_ok("code fix pins", payload)
+        if code != 0 or "mpython-pins" not in [item.get("repair") for item in data.get("applied") or []]:
+            fail(f"code fix pins 结果不符：exit={code}")
+        if "Pin(33)" not in (data.get("after") or ""):
+            fail("code fix pins 未映射 GPIO33")
+        print("ok code fix pins")
+
+        refusal_source = tmp_dir / "refusal.py"
+        refusal_source.write_text(EXPECTED["codeFix"]["badArgsSource"], encoding="utf-8")
+        code, payload = run("code", "fix", "--board", "k10", "--file", str(refusal_source))
+        data = expect_ok("code fix refusal", payload)
+        if code != 0 or data.get("changed") or data.get("skipped") != [
+            {"repair": "k10-screen", "reason": "此处文字参数无法可靠转换，请按官方draw_text关键字参数手动修改；原代码保留。"}
+        ]:
+            fail(f"code fix 拒绝路径不符：exit={code} data={data}")
+        if not any(item.get("repair") == "k10-screen" for item in data.get("remaining") or []):
+            fail("code fix 拒绝路径未保留 remaining")
+        print("ok code fix refusal")
+
+        out_file = tmp_dir / "fixed.py"
+        code, payload = run(
+            "code", "fix", "--board", "k10", "--file", str(fix_source), "--out", str(out_file),
+        )
+        data = expect_ok("code fix out", payload)
+        if code != 0 or payload.get("readOnly") or str(out_file) not in (payload.get("writes") or []):
+            fail(f"code fix --out 结果不符：exit={code} writes={payload.get('writes')}")
+        if out_file.read_text(encoding="utf-8") != data.get("after"):
+            fail("code fix --out 内容与 after 不一致")
+        before = out_file.read_text(encoding="utf-8")
+        code, payload = run(
+            "code", "fix", "--board", "k10", "--file", str(fix_source), "--out", str(out_file),
+        )
+        if code != 6 or _error_code(payload) != "OUT_EXISTS":
+            fail(f"code fix OUT_EXISTS 负例不符：exit={code} code={_error_code(payload)}")
+        if out_file.read_text(encoding="utf-8") != before:
+            fail("code fix OUT_EXISTS 改动了原文件")
+        print("ok code fix out boundary")
+
+        syntax_source = tmp_dir / "syntax.py"
+        syntax_source.write_text(EXPECTED["codeFix"]["syntaxSource"], encoding="utf-8")
+        code, payload = run("code", "fix", "--board", "k10", "--file", str(syntax_source))
+        if code != 4 or _error_code(payload) != "CODE_INVALID":
+            fail(f"code fix syntax 负例不符：exit={code} code={_error_code(payload)}")
+        print("ok code fix syntax negative")
 
         laser = EXPECTED["laserPlate"]
         out = Path(tmp) / "laser"

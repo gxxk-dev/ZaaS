@@ -183,6 +183,56 @@ def write_text(out: Path, name: str, content: str, *, encoding: str = "utf-8") -
     return str(path)
 
 
+def resolve_out_file(value: str) -> Path:
+    """Resolve a single-file output target without allowing overwrite."""
+    raw = Path(value).expanduser()
+    if raw.is_symlink():
+        raise ZwError(
+            "OUT_EXISTS",
+            f"输出目标已存在或不是普通新文件：{raw}",
+            "换一个不存在的文件路径；code fix 不覆盖已有文件。",
+            6,
+        )
+    try:
+        path = raw.resolve()
+    except (OSError, RuntimeError) as exc:
+        raise ZwError("OUT_EXISTS", f"无法解析输出路径：{raw}", str(exc), 6) from exc
+    root = home()
+    if path == root or root in path.parents:
+        raise ZwError(
+            "OUT_IN_REPO",
+            f"拒绝写入掌问仓库：{path}",
+            "换一个输出路径；code fix 默认不写 $ZW_HOME。",
+            6,
+        )
+    if path.exists():
+        raise ZwError(
+            "OUT_EXISTS",
+            f"输出目标已存在：{path}",
+            "换一个不存在的文件路径；code fix 不覆盖已有文件。",
+            6,
+        )
+    return path
+
+
+def write_text_file(path: Path, content: str) -> str:
+    """Create a new UTF-8 file exclusively, creating parent directories."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8", newline="") as handle:
+            handle.write(content)
+    except FileExistsError as exc:
+        raise ZwError(
+            "OUT_EXISTS",
+            f"输出目标已存在：{path}",
+            "换一个不存在的文件路径；code fix 不覆盖已有文件。",
+            6,
+        ) from exc
+    except OSError as exc:
+        raise ZwError("OUT_WRITE_FAILED", f"无法写入：{path}", str(exc), 7) from exc
+    return str(path)
+
+
 def load_json_arg(value: str) -> object:
     """Accept inline JSON, @file, or - for stdin."""
     try:

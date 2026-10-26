@@ -73,6 +73,7 @@ zw firmware list [--board B] --json
 zw firmware get <board> --json
 zw firmware verify <board> --file PATH --json
 zw code check --board B --file main.py [--component ID ...] --json
+zw code fix --board B --file main.py [--out FILE] --json
 zw enclosure plan --request FILE|- --json
 ```
 
@@ -83,6 +84,7 @@ zw enclosure plan --request FILE|- --json
 - `firmware list/get` 只读 `resources/firmware/manifest.json` 与上游 `PROFILES`；镜像未提供时仍 exit 0，给 `unavailable` 和 warning。
 - `firmware verify` 只读计算本地文件大小和 SHA-256，与固定镜像比对；不下载、不刷写、不调用 FastAPI 的镜像接口。文件必须是普通文件（拒绝符号链接/目录）。匹配 exit 0，不匹配 exit 4 `FIRMWARE_MISMATCH`，无镜像 exit 4 `FIRMWARE_UNAVAILABLE`。
 - `code check --component` 额外做电气规则校验；省略时只做语法和板级 API 检查。
+- `code fix` 是只读预览式修复；只有显式 `--out FILE` 才写一个**不存在**的新文件，目标已存在或位于 `$ZW_HOME` 内 → exit 6。exit 0 不表示诊断清零或已实测。
 - `enclosure plan` 只读、无 CadQuery 依赖；缺机械数据时 exit 4 `NEEDS_INPUT`，见 `enclosure.md`。
 
 ## 产出命令
