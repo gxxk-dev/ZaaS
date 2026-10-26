@@ -425,3 +425,91 @@ def _out_files(out: Path) -> list[str]:
         return sorted(str(path) for path in out.iterdir() if path.is_file())
     except OSError:
         return []
+
+
+def _profile_payload(profile, *, source: str) -> dict[str, Any]:
+    model_kind = getattr(profile, "model_kind", None)
+    return {
+        "profileId": profile.profile_id,
+        "displayName": profile.display_name,
+        "category": profile.category,
+        "roles": list(profile.roles),
+        "source": source,
+        "revision": profile.revision,
+        "dimensions": _dump(profile.dimensions),
+        "mounting": _dump(profile.mounting),
+        "modelKind": getattr(model_kind, "value", model_kind),
+    }
+
+
+def cmd_profiles() -> CommandResult:
+    """List only profiles the enclosure engine can actually resolve."""
+    try:
+        from zhangwen.cad_engine.profiles import trusted_profiles
+    except ImportError as exc:
+        raise ZwError(
+            "DEPENDENCY_MISSING",
+            f"无法导入 zhangwen.cad_engine.profiles：{exc}",
+            "升级掌问到 V0.4.2026.1021.01 或更新版本。",
+            5,
+        ) from exc
+
+    warnings: list[str] = []
+    trusted = list(trusted_profiles())
+    trusted_ids = {profile.profile_id for profile in trusted}
+    profiles = [
+        _profile_payload(profile, source="trusted") for profile in trusted
+    ]
+    try:
+        mechanical = enclosure_spec._mechanical_index(warnings)
+    except ImportError as exc:
+        raise ZwError(
+            "DEPENDENCY_MISSING",
+            f"无法读取资料包机械 profile：{exc}",
+            "检查掌问核心依赖与资料包索引。",
+            5,
+        ) from exc
+
+    shadowed_ids: set[str] = set()
+    for profile_id in sorted(mechanical):
+        entries = mechanical[profile_id]
+        signatures = {
+            json.dumps(profile.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
+            for _, profile in entries
+        }
+        ambiguous = len(signatures) > 1
+        if ambiguous:
+            packages = ", ".join(
+                str(package.get("skillName")) for package, _ in entries
+            )
+            warnings.append(
+                f"profile_id {profile_id} 在多个资料包中内容不一致（{packages}）；"
+                "enclosure 会拒绝该 id，请改用 component_id 或内联 profile。"
+            )
+        if profile_id in trusted_ids:
+            shadowed_ids.add(profile_id)
+        for package, profile in sorted(
+            entries, key=lambda item: str(item[0].get("skillName") or "")
+        ):
+            item = _profile_payload(profile, source="package-mechanical")
+            item.update(
+                {
+                    "componentId": package.get("componentId"),
+                    "skillName": package.get("skillName"),
+                    "verificationStatus": package.get("verificationStatus"),
+                    "ambiguous": ambiguous,
+                    "shadowed": profile_id in trusted_ids,
+                }
+            )
+            profiles.append(item)
+
+    if shadowed_ids:
+        warnings.append(
+            "以下 profile_id 同时由 trusted 与资料包声明："
+            + ", ".join(sorted(shadowed_ids))
+            + "；enclosure 优先使用 trusted，资料包条目仅作参考。"
+        )
+    warnings.append("verificationStatus 是资料包的声明值，不等同于已实测或已联调。")
+    if not profiles:
+        warnings.append("没有可用的 enclosure profile。")
+    return CommandResult(data={"count": len(profiles), "profiles": profiles}, warnings=warnings)

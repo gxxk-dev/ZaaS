@@ -3,6 +3,21 @@
   "boards": 5,
   "laserTemplates": ["finger-box", "panel-box", "plate", "round-tag", "rounded-box"],
   "cadTemplates": ["mpython-shell", "photo-stand", "servo-horizontal", "servo-side", "servo-vertical"],
+  "structureTemplates": {
+    "packaged": ["mpython-shell", "photo-stand", "servo-horizontal", "servo-side", "servo-vertical"],
+    "designSpec": ["box", "cup", "bracket"],
+    "boxDefaults": {"width": 80, "depth": 60, "height": 40, "thickness": 3}
+  },
+  "designSpecBox": {
+    "params": {"width": 40, "depth": 30, "height": 20},
+    "title": "开口收纳盒",
+    "files": ["model.step", "model.stl", "design-spec.json", "cadquery.py"]
+  },
+  "enclosureProfiles": {
+    "trusted": "xiao_esp32s3",
+    "packageProfile": "dfr0026_ambient_light_sensor",
+    "packageComponent": "hw_dfrobot_dfr0026"
+  },
   "firmware": {
     "board": "k10",
     "boardId": "hw_seed_unihiker_k10"

@@ -10,6 +10,7 @@
 ## 命令
 
 ```bash
+zw enclosure profiles [--json]
 zw enclosure plan  --request FILE|- [--json]
 zw enclosure build --request FILE|- --out DIR [--json]
 zw enclosure build --spec FILE|-   --out DIR [--json]
@@ -17,9 +18,14 @@ zw enclosure build --spec FILE|-   --out DIR [--json]
 
 | 命令 | 写盘 | 依赖 | 说明 |
 |---|---|---|---|
+| `profiles` | 无 | pydantic + `zhangwen.cad_engine` | 列出 trusted 与资料包机械 profile；不读取 legacy 几何资料库 |
 | `plan` | 无 | pydantic + `zhangwen.cad_engine` | 解析请求、自动尺寸、布局与校验；返回最终 spec |
 | `build --request` | 只写 `--out` | 再加 CadQuery/OCP | 规划后构建全套产物，并写 `spec.json` |
 | `build --spec` | 只写 `--out` | 再加 CadQuery/OCP | 直接构建已确认/微调过的 `CadBuildSpec` |
+
+`profiles` 输出 `count/profiles`。每项给 `profileId/displayName/category/roles/source/revision/dimensions/mounting/modelKind`；资料包来源另有 `componentId/skillName/verificationStatus/ambiguous/shadowed`。`ambiguous: true` 表示同一 `profile_id` 在多个资料包中内容不一致，`enclosure` 会拒绝该 id。`shadowed: true` 表示该 id 已被 trusted profile 覆盖，资料包条目只作参考。`verificationStatus` 是包级声明，不等于实测。
+
+旧版 `services/structure-cad/server/data/hardware-library.json` 的几何资料**不是** `HardwareProfile`，`enclosure` 不读取它；本命令也不会混入这些条目。不要把旧资料库当作可用的安装 profile。
 
 `--out` 必须不存在或为空；**没有 `--force`**，也不允许 `--allow-in-repo`。`resolve_out` 会拒绝非空目录和 `$ZW_HOME` 内的路径（exit 6）。
 
@@ -192,7 +198,16 @@ zw enclosure build --spec ./enc-out/spec.json --out ./enc-out-2 --json
 
 # 直接构建四个上游模板之一
 zw enclosure build --spec spec.json --out ./direct-out --json
+
+# 上游固定 K10 相册支架（无 enclosure/components/freeform）
+zw enclosure build --spec - --out ./album-out --json <<'JSON'
+{"design_id":"k10_photo_album",
+ "template":"unihiker_k10_photo_album",
+ "template_revision":"unihiker-k10-photo-album.v1"}
+JSON
 ```
+
+`unihiker_k10_photo_album` 与打包的 `photo-stand` 是不同几何；后者用 `zw structure template photo-stand`，前者只能用 `--spec` 整体构建。
 
 ## 限制
 

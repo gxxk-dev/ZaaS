@@ -75,6 +75,8 @@ zw firmware get <board> --json
 zw firmware verify <board> --file PATH --json
 zw code check --board B --file main.py [--component ID ...] --json
 zw code fix --board B --file main.py [--out FILE] --json
+zw structure templates --json
+zw enclosure profiles --json
 zw enclosure plan --request FILE|- --json
 ```
 
@@ -87,6 +89,7 @@ zw enclosure plan --request FILE|- --json
 - `firmware verify` 只读计算本地文件大小和 SHA-256，与固定镜像比对；不下载、不刷写、不调用 FastAPI 的镜像接口。文件必须是普通文件（拒绝符号链接/目录）。匹配 exit 0，不匹配 exit 4 `FIRMWARE_MISMATCH`，无镜像 exit 4 `FIRMWARE_UNAVAILABLE`。
 - `code check --component` 额外做电气规则校验；省略时只做语法和板级 API 检查。
 - `code fix` 是只读预览式修复；只有显式 `--out FILE` 才写一个**不存在**的新文件，目标已存在或位于 `$ZW_HOME` 内 → exit 6。exit 0 不表示诊断清零或已实测。
+- `structure templates` 只读列出 5 个打包模板与 `box/cup/bracket` 三个 design-spec 模板；不需要 CadQuery。`enclosure profiles` 只读列出 5 个 trusted profile 与资料包 mechanical profile；不读取 legacy 几何资料库。两者都走 core 依赖。
 - `enclosure plan` 只读、无 CadQuery 依赖；缺机械数据时 exit 4 `NEEDS_INPUT`，见 `enclosure.md`。
 
 ## 产出命令
@@ -100,12 +103,13 @@ zw laser templates --json
 zw structure template <id> [--edit plan.json] --out DIR [--json]
 zw structure template <id> --list-params --json
 zw structure solid --spec spec.json --out DIR [--json]
+zw structure solid --template box|cup|bracket [--params JSON] --out DIR [--json]
 
 zw enclosure build --request FILE|- --out DIR [--json]
 zw enclosure build --spec FILE|-   --out DIR [--json]
 ```
 
-- `--params` 可写内联 JSON 或 `@file.json`。
+- `--params` 可写内联 JSON 或 `@file.json`；`structure solid` 还接受 `-`。`--spec` 与 `--template` 互斥且必须提供一个；未知模板 exit 3 `TEMPLATE_NOT_FOUND`，非法参数 exit 4 `PARAM_INVALID`。
 - `laser text` 默认只读；`--out` 才写 4 个文件。`--size` 1–150mm，`--margin` ≥0；字体固定为随包 NotoSansSC，文字缺字 exit 4 `TEXT_INVALID`。
 - `laser templates` 只读列出模板、参数默认值和 `patternVersions`；`rounded-box` 支持 `pattern_version=1|2`，默认 2。
 - `--edit` / `--spec` 接受文件路径或 `-`（stdin）。

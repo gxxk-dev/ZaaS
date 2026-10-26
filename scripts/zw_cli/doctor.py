@@ -10,8 +10,9 @@ import shutil
 import subprocess
 import sys
 
+from . import cad as cad_cli
 from . import env, index, laser as laser_cli
-from .envelope import CommandResult
+from .envelope import CommandResult, ZwError
 
 
 def _version(distribution: str, module: str | None = None) -> dict:
@@ -72,16 +73,29 @@ def cmd_status() -> CommandResult:
     data_dir = env.data_dir()
     catalog = index.catalog_status()
     boards = index.board_records()
-    templates_path = root / "services" / "structure-cad" / "templates" / "manifest.json"
     cad_templates = []
+    catalog_warnings = []
     try:
-        manifest = json.loads(templates_path.read_text(encoding="utf-8"))
+        template_catalog, catalog_warnings = cad_cli.list_templates()
         cad_templates = [
-            {"id": item["id"], "title": item["title"], "revision": item.get("revision")}
-            for item in manifest.get("templates", [])
+            {
+                "id": item["id"],
+                "title": item["title"],
+                "revision": item.get("revision"),
+            }
+            for item in template_catalog.get("templates", [])
         ]
-    except (OSError, ValueError, KeyError):
-        pass
+    except ZwError as exc:
+        catalog_warnings = [f"无法读取 CAD 模板目录：{exc.message}；已回退到模板清单。"]
+        templates_path = root / "services" / "structure-cad" / "templates" / "manifest.json"
+        try:
+            manifest = json.loads(templates_path.read_text(encoding="utf-8"))
+            cad_templates = [
+                {"id": item["id"], "title": item["title"], "revision": item.get("revision")}
+                for item in manifest.get("templates", [])
+            ]
+        except (OSError, ValueError, KeyError):
+            pass
 
     deps = {
         "pydantic": _version("pydantic"),
@@ -96,7 +110,7 @@ def cmd_status() -> CommandResult:
     }
     font = root / "resources" / "fonts" / "NotoSansSC.ttf"
     release = _release(root)
-    warnings = []
+    warnings = list(catalog_warnings)
     if not release["version"]:
         warnings.append("未能从 version.json 读取掌问版本；本机可能不是完整安装。")
     if catalog["stale"]:

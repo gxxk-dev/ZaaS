@@ -169,6 +169,73 @@ def _check_board_skills() -> None:
     print("ok guide kind")
 
 
+def _launcher_requirements(*args: str) -> str:
+    proc = subprocess.run(
+        [str(ZW), *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "ZW_LAUNCH_DEBUG_REQUIREMENTS": "1"},
+    )
+    if proc.returncode != 0:
+        fail(f"launcher debug 失败：zw {' '.join(args)} exit={proc.returncode} stderr={proc.stderr[:300]}")
+    return proc.stdout.strip()
+
+
+def _check_structure_catalog() -> None:
+    case = EXPECTED["structureTemplates"]
+    code, payload = run("structure", "templates")
+    data = expect_ok("structure templates", payload)
+    templates = {item.get("id"): item for item in data.get("templates") or []}
+    if code != 0 or data.get("count") != len(case["packaged"]) + len(case["designSpec"]):
+        fail(f"structure templates count={data.get('count')} exit={code}")
+    for identifier in case["packaged"]:
+        if templates.get(identifier, {}).get("source") != "packaged":
+            fail(f"structure templates 缺少打包模板 {identifier}")
+    for identifier in case["designSpec"]:
+        if templates.get(identifier, {}).get("source") != "design-spec":
+            fail(f"structure templates 缺少 design-spec 模板 {identifier}")
+    defaults = {
+        item.get("name"): item.get("default")
+        for item in templates.get("box", {}).get("parameters") or []
+    }
+    if defaults != case["boxDefaults"]:
+        fail(f"structure templates box 参数默认值不符：{defaults}")
+    if not payload.get("readOnly") or payload.get("writes"):
+        fail("structure templates 不是只读")
+    print("ok structure templates")
+
+    code, payload = run("enclosure", "profiles")
+    data = expect_ok("enclosure profiles", payload)
+    profiles = data.get("profiles") or []
+    by_id = {item.get("profileId"): item for item in profiles}
+    expected = EXPECTED["enclosureProfiles"]
+    if code != 0 or expected["trusted"] not in by_id:
+        fail(f"enclosure profiles 缺少 trusted profile：exit={code}")
+    package = by_id.get(expected["packageProfile"])
+    if not package or package.get("source") != "package-mechanical":
+        fail(f"enclosure profiles 缺少资料包 profile：{expected['packageProfile']}")
+    if package.get("componentId") != expected["packageComponent"]:
+        fail(f"enclosure profiles componentId 不符：{package}")
+    if not payload.get("readOnly") or payload.get("writes"):
+        fail("enclosure profiles 不是只读")
+    print("ok enclosure profiles")
+
+    routes = {
+        ("structure", "templates"): "core",
+        ("enclosure", "profiles"): "core",
+        ("enclosure", "plan"): "core",
+        ("structure", "template"): "cad",
+        ("structure", "solid"): "cad",
+        ("enclosure", "build"): "cad",
+    }
+    for args, expected_route in routes.items():
+        actual = _launcher_requirements(*args)
+        if actual != expected_route:
+            fail(f"launcher 分流 {args} = {actual!r}，期望 {expected_route!r}")
+    print("ok launcher requirements")
+
+
 def _check_enclosure(case: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="zw-enclosure-") as tmp:
         root = Path(tmp)
@@ -390,6 +457,7 @@ def main() -> int:
 
     _check_firmware()
     _check_board_skills()
+    _check_structure_catalog()
 
     with tempfile.TemporaryDirectory(prefix="zw-contract-") as tmp:
         tmp_dir = Path(tmp)
@@ -558,6 +626,38 @@ def main() -> int:
         if not any(item.get("name") == "pattern_version" for item in templates.get("rounded-box", {}).get("parameters") or []):
             fail("laser templates 缺少 pattern_version")
         print("ok laser templates")
+
+        if os.environ.get("ZW_CONTRACT_CAD") == "1":
+            box = EXPECTED["designSpecBox"]
+            box_out = tmp_dir / "solid-box"
+            code, payload = run(
+                "structure", "solid", "--template", "box",
+                "--params", json.dumps(box["params"]), "--out", str(box_out),
+            )
+            data = expect_ok("structure solid template", payload)
+            if code != 0 or data.get("template") != "box" or data.get("title") != box["title"]:
+                fail(f"structure solid template 不符：exit={code} data={data}")
+            missing = [name for name in box["files"] if not (box_out / name).is_file()]
+            if missing:
+                fail(f"structure solid template 缺少文件：{missing}")
+            design = json.loads((box_out / "design-spec.json").read_text(encoding="utf-8"))
+            if design.get("spec", {}).get("title") != box["title"]:
+                fail("structure solid design-spec.json 标题不符")
+            code, payload = run(
+                "structure", "solid", "--template", "nope",
+                "--params", "{}", "--out", str(tmp_dir / "solid-nope"),
+            )
+            if code != 3 or _error_code(payload) != "TEMPLATE_NOT_FOUND":
+                fail(f"structure solid 未知模板负例不符：exit={code} code={_error_code(payload)}")
+            code, payload = run(
+                "structure", "solid", "--template", "box",
+                "--params", '{"thickness":0}', "--out", str(tmp_dir / "solid-zero"),
+            )
+            if code != 4 or _error_code(payload) != "PARAM_INVALID":
+                fail(f"structure solid 非法参数负例不符：exit={code} code={_error_code(payload)}")
+            print("ok structure solid template")
+        else:
+            print("skip structure solid template (ZW_CONTRACT_CAD != 1)")
 
 
     _check_enclosure(EXPECTED["enclosure"])

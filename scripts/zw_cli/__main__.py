@@ -9,6 +9,7 @@ import sys
 import traceback
 
 from . import boards as boards_cli
+from . import cad as cad_cli
 from . import code, doctor, env, firmware, hardware, laser as laser_cli
 from .envelope import CommandResult, ZwError, failure, ok, print_json
 
@@ -159,6 +160,12 @@ def _parser() -> argparse.ArgumentParser:
 
     structure = groups.add_parser("structure", help="Python CAD")
     structure_sub = structure.add_subparsers(dest="structure_command", required=True)
+    structure_templates = structure_sub.add_parser(
+        "templates", parents=[common], help="列出内置与 design-spec 模板（只读）"
+    )
+    structure_templates.set_defaults(
+        func=_structure_templates, command="structure templates"
+    )
     template = structure_sub.add_parser("template", parents=[common], help="固定模板与受约束改造")
     template.add_argument("identifier")
     template.add_argument("--edit", help="TemplateEditSpec JSON 文件，或 -")
@@ -169,7 +176,12 @@ def _parser() -> argparse.ArgumentParser:
     template.set_defaults(func=_structure_template, command="structure template")
 
     solid = structure_sub.add_parser("solid", parents=[common], help="参数化 DesignSpec")
-    solid.add_argument("--spec", required=True, help="DesignSpec JSON 文件，或 -")
+    solid_source = solid.add_mutually_exclusive_group(required=True)
+    solid_source.add_argument("--spec", help="DesignSpec JSON 文件，或 -")
+    solid_source.add_argument(
+        "--template", help="确定性 3D 模板：box、cup 或 bracket"
+    )
+    solid.add_argument("--params", help="模板参数 JSON、@file 或 -")
     solid.add_argument("--out", required=True)
     solid.add_argument("--force", action="store_true")
     solid.add_argument("--allow-in-repo", action="store_true")
@@ -177,6 +189,10 @@ def _parser() -> argparse.ArgumentParser:
 
     enclosure = groups.add_parser("enclosure", help="确定性外壳管线")
     enclosure_sub = enclosure.add_subparsers(dest="enclosure_command", required=True)
+    enc_profiles = enclosure_sub.add_parser(
+        "profiles", parents=[common], help="列出 enclosure 可用的硬件 profile（只读）"
+    )
+    enc_profiles.set_defaults(func=_enclosure_profiles, command="enclosure profiles")
     enc_plan = enclosure_sub.add_parser("plan", parents=[common], help="解析请求并规划（只读）")
     enc_plan.add_argument("--request", required=True, help="请求 JSON 文件，或 -")
     enc_plan.set_defaults(func=_enclosure_plan, command="enclosure plan")
@@ -202,6 +218,10 @@ def _laser_build(args) -> CommandResult:
     )
 
 
+def _structure_templates(_args) -> CommandResult:
+    return cad_cli.cmd_templates()
+
+
 def _structure_template(args) -> CommandResult:
     from . import cad
 
@@ -220,10 +240,18 @@ def _structure_solid(args) -> CommandResult:
 
     return cad.cmd_solid(
         args.spec,
+        template=args.template,
+        params=args.params,
         out_value=args.out,
         force=args.force,
         allow_in_repo=args.allow_in_repo,
     )
+
+
+def _enclosure_profiles(_args) -> CommandResult:
+    from . import enclosure
+
+    return enclosure.cmd_profiles()
 
 
 def _enclosure_plan(args) -> CommandResult:
@@ -384,6 +412,13 @@ def _human(command: str, payload: dict) -> None:
         print(f"画布: {canvas.get('width')} × {canvas.get('height')} mm")
         for key, path in (data.get("exports") or {}).items():
             print(f"  {key}: {path}")
+    elif command == "structure templates":
+        print(f"结构模板 {data.get('count', 0)} 个")
+        for item in data.get("templates", []):
+            params = ", ".join(
+                f"{param.get('name')}={param.get('default')}" for param in item.get("parameters") or []
+            )
+            print(f"  {item.get('id'):<16} [{item.get('source')}] {item.get('title')}  {params}")
     elif command == "structure template" and "parameters" in data:
         template = data.get("template", {})
         print(f"{template.get('title')} ({template.get('id')})")
@@ -393,6 +428,14 @@ def _human(command: str, payload: dict) -> None:
         print("部件:")
         for item in data.get("parts", []):
             print(f"  {item['id']}  {item['label']}  printable={item['printable']}")
+    elif command == "enclosure profiles":
+        print(f"enclosure profile {data.get('count', 0)} 个")
+        for item in data.get("profiles", []):
+            flag = " [ambiguous]" if item.get("ambiguous") else ""
+            print(
+                f"  {item.get('profileId'):<40} [{item.get('source')}] "
+                f"{item.get('displayName')}{flag}"
+            )
     elif command in {"enclosure plan", "enclosure build"}:
         _human_enclosure(command, data, payload)
     else:

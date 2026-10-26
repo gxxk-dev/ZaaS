@@ -1,8 +1,16 @@
 # Python CAD
 
-`zw structure` 有两类输入：**固定模板**（可参数化、可受约束改造）和**参数化实体**（box/cylinder/sphere 的加料/挖料）。两者都只输出名义几何，不做打印公差、材料收缩或强度校验。
+`zw structure` 有三类输入：**固定模板**（可参数化、可受约束改造）、**design-spec 模板**（`box`/`cup`/`bracket` 的确定性实体）和**参数化实体**（box/cylinder/sphere 的加料/挖料）。三者都只输出名义几何，不做打印公差、材料收缩或强度校验。
 
 由已选硬件自动生成“带开孔、上盖和螺丝柱的封闭盒子”，或单器件安装座，用 `zw enclosure`（见 `references/enclosure.md`），不要用 `structure solid` 手拼。`structure solid` 保留给没有机械 profile 的自定义 CSG。
+
+## 模板目录
+
+```bash
+zw structure templates --json
+```
+
+只读列出 8 个模板：5 个打包固定模板（`source: "packaged"`）和 3 个 design-spec 模板（`source: "design-spec"`）。每项包含 `id/title/description/revision/size/notes/parts/parameters/image/sha256/assets`。`parameters[].default` 是模板默认值；打包模板的参数名与 `--list-params` 一致。该命令不需要 CadQuery。
 
 ## 固定模板
 
@@ -131,6 +139,30 @@ zw structure template mpython-shell --edit plan.json --out DIR --json
 
 ## 参数化实体（`structure solid`）
 
+`structure solid` 接受 `--spec`（完整 DesignSpec）或 `--template`（确定性模板），二者互斥且必须提供一个。模板参数可用 `--params` 内联 JSON、`@file.json` 或 `-`。
+
+### design-spec 模板
+
+```bash
+zw structure solid --template box \
+  --params '{"width":40,"depth":30,"height":20,"thickness":3}' \
+  --out DIR --json
+```
+
+| id | 形状 | 参数 |
+|---|---|---|
+| `box` | 开口收纳盒 | `width`/`depth`/`height`/`thickness`，默认 80/60/40/3 |
+| `cup` | 圆柱笔筒 | 同上；`width` 是外径，`depth` 不使用 |
+| `bracket` | L 形支架 | 同上；底板 + 立板一体 |
+
+- 参数白名单只有 `width/depth/height/thickness`；未知参数 exit 4 `PARAM_INVALID`。
+- 尺寸必须大于两倍板厚，板厚 0.8–30mm；违反时 exit 4 `PARAM_INVALID`。
+- 未知模板 exit 3 `TEMPLATE_NOT_FOUND`。
+- 输出与 `--spec` 相同：`model.step`、`model.stl`、`design-spec.json`、`cadquery.py`。
+- `cup` 的 `depth` 不参与几何；不要用它表达直径。
+
+### 自定义 DesignSpec
+
 输入是 `DesignSpec` JSON。只接受 3D：`solid` 非空，且第一个操作必须是 `add`；不能带 `drawing`/`fingerBox`/`roundedBox`。激光图纸用 `laser build`。
 
 ```json
@@ -153,6 +185,20 @@ zw structure solid --spec spec.json --out DIR --json
 - 可选包装 `{"spec": {...}, "scale": 1.2}`；`scale` 0.1–5，只缩放几何，不改 JSON 中的名义尺寸。
 - `questions` 非空 → exit 4。
 - 输出 `model.step`、`model.stl`、`design-spec.json`、`cadquery.py`。
+
+### 上游固定几何 `unihiker_k10_photo_album`
+
+上游还有一个不走 `DesignSpec` 的固定 K10 相册支架。用 `zw enclosure build --spec` 直接构建：
+
+```json
+{
+  "design_id": "k10_photo_album",
+  "template": "unihiker_k10_photo_album",
+  "template_revision": "unihiker-k10-photo-album.v1"
+}
+```
+
+该模板不能带 `enclosure`、`component_mount`、`freeform_geometry`、`standoffs`、`openings`、`profiles` 或 `hardware`。它和打包的 `photo-stand` 模板是两套不同几何：`photo-stand` 走 `structure template`，可改 57 个顶层参数；`unihiker_k10_photo_album` 是上游固定件，只能整体构建。
 
 ## 输出与声明
 

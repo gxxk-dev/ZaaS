@@ -495,7 +495,7 @@ def _mechanical_index(warnings: list[str]) -> dict[str, list[tuple[dict[str, Any
         if not mechanical.is_file():
             continue
         try:
-            detail = hardware._detail(str(package["skillName"]))
+            _, detail = hardware._detail(str(package["skillName"]))
         except ZwError as exc:
             warnings.append(f"跳过 {package['skillName']} 的机械档案：{exc.message}")
             continue
