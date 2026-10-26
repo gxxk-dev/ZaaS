@@ -1,0 +1,2 @@
+# Test runner only. Do not install into $ZW_HOME/.venv.
+pytest==9.1.1
