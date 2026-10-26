@@ -97,6 +97,78 @@ def _check_firmware() -> None:
         print("ok firmware negatives")
 
 
+def _check_board_skills() -> None:
+    case = EXPECTED["boardSkills"]
+    code, payload = run("boards", "--board", case["strictBoard"], "--full")
+    data = expect_ok("boards full strict", payload)
+    skill = data.get("skill") or {}
+    if code != 0 or skill.get("layout") != "strict" or skill.get("verified") is not True:
+        fail(f"boards --full strict 不符：exit={code} skill={skill.get('layout')}/{skill.get('verified')}")
+    if not data.get("entry") or not data["entry"].get("content"):
+        fail("boards --full 缺少 entry")
+    if not data.get("programmingContext"):
+        fail("boards --full 缺少 programmingContext")
+    print("ok boards full strict")
+
+    code, payload = run(
+        "boards", "--board", case["strictBoard"], "--full", "--file", case["file"],
+    )
+    data = expect_ok("boards full file", payload)
+    file_item = data.get("file") or {}
+    if code != 0 or file_item.get("path") != case["file"] or not file_item.get("content"):
+        fail(f"boards --full --file 不符：exit={code} file={file_item.get('path')}")
+    print("ok boards full file")
+
+    code, payload = run("boards", "--board", case["legacyBoard"], "--full")
+    data = expect_ok("boards full legacy", payload)
+    skill = data.get("skill") or {}
+    if code != 0 or skill.get("layout") != "legacy" or skill.get("verified") is not False:
+        fail(f"boards legacy 不符：exit={code} skill={skill.get('layout')}/{skill.get('verified')}")
+    if not any("legacy" in item for item in payload.get("warnings") or []):
+        fail("boards legacy 缺少 warning")
+    print("ok boards full legacy")
+
+    code, payload = run("boards", "--board", "mpython3", "--full")
+    data = expect_ok("boards full no skill", payload)
+    if code != 0 or data.get("skill") is not None or not data.get("programmingContext"):
+        fail(f"boards 无 Board Skill 降级不符：exit={code}")
+    print("ok boards full without skill")
+
+    code, payload = run("boards", "--board", case["strictBoard"], "--context", case["contextQuery"])
+    data = expect_ok("boards context", payload)
+    package = data.get("package") or {}
+    if code != 0 or package.get("profileId") != case["contextProfile"]:
+        fail(f"boards --context 不符：exit={code} package={package}")
+    if not data.get("references") or not data.get("templates"):
+        fail("boards --context 缺少参考/模板")
+    print("ok boards context")
+
+    code, payload = run("boards", "--board", case["legacyBoard"], "--context", "GPIO")
+    if code != 4 or _error_code(payload) != "BOARD_SKILL_CONTEXT_UNAVAILABLE":
+        fail(f"boards legacy context 负例不符：exit={code} code={_error_code(payload)}")
+    code, payload = run("boards", "--full")
+    if code != 2 or _error_code(payload) != "REQUEST_INVALID":
+        fail(f"boards --full 无 board 负例不符：exit={code} code={_error_code(payload)}")
+    code, payload = run("boards", "--board", "mpython3", "--full", "--file", "SKILL.md")
+    if code != 3 or _error_code(payload) != "FILE_NOT_FOUND":
+        fail(f"boards --file 无 skill 负例不符：exit={code} code={_error_code(payload)}")
+    print("ok boards negatives")
+
+    code, payload = run(
+        "hardware", "guide", case["guideId"], "--board", case["strictBoard"],
+        "--kind", case["guideKind"],
+    )
+    data = expect_ok("guide kind", payload)
+    if code != 0 or (data.get("guide") or {}).get("kind") != case["guideKind"]:
+        fail(f"hardware guide --kind 正例不符：exit={code}")
+    code, payload = run(
+        "hardware", "guide", case["guideId"], "--board", case["strictBoard"], "--kind", "functional",
+    )
+    if code != 4 or _error_code(payload) != "GUIDE_KIND_MISMATCH":
+        fail(f"hardware guide --kind 负例不符：exit={code} code={_error_code(payload)}")
+    print("ok guide kind")
+
+
 def _check_enclosure(case: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="zw-enclosure-") as tmp:
         root = Path(tmp)
@@ -317,6 +389,7 @@ def main() -> int:
     print("ok validate")
 
     _check_firmware()
+    _check_board_skills()
 
     with tempfile.TemporaryDirectory(prefix="zw-contract-") as tmp:
         tmp_dir = Path(tmp)

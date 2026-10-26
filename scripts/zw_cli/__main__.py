@@ -8,6 +8,7 @@ import os
 import sys
 import traceback
 
+from . import boards as boards_cli
 from . import code, doctor, env, firmware, hardware
 from .envelope import CommandResult, ZwError, failure, ok, print_json
 
@@ -28,8 +29,20 @@ def _parser() -> argparse.ArgumentParser:
     doctor_parser = groups.add_parser("doctor", parents=[common], help="同 status")
     doctor_parser.set_defaults(func=lambda a: doctor.cmd_status(), command="doctor")
 
-    boards = groups.add_parser("boards", parents=[common], help="列出 5 块主控")
-    boards.set_defaults(func=lambda a: hardware.cmd_boards(), command="boards")
+    boards = groups.add_parser("boards", parents=[common], help="列出主控或读取 Board Skill")
+    boards.add_argument("--board", help="只看指定主控")
+    boards.add_argument("--full", action="store_true", help="读取 Board Skill 元数据与入口")
+    boards.add_argument("--file", dest="file_path", help="读取 Board Skill 中的一个文件（需 --full）")
+    boards.add_argument("--context", help="按查询筛选 Board Skill 上下文")
+    boards.set_defaults(
+        func=lambda a: boards_cli.cmd_boards(
+            board=a.board,
+            full=a.full,
+            file_path=a.file_path,
+            context=a.context,
+        ),
+        command="boards",
+    )
 
     hard = groups.add_parser("hardware", help="硬件资料与模块指南")
     hard_sub = hard.add_subparsers(dest="hardware_command", required=True)
@@ -56,9 +69,15 @@ def _parser() -> argparse.ArgumentParser:
     guide = hard_sub.add_parser("guide", parents=[common], help="按主控渲染模块指南")
     guide.add_argument("identifier")
     guide.add_argument("--board", required=True)
+    guide.add_argument("--kind", help="断言指南种类：functional/diagnostic/reference")
     guide.add_argument("--set", dest="setup", action="append", default=[], metavar="KEY=VALUE")
     guide.set_defaults(
-        func=lambda a: hardware.cmd_guide(a.identifier, board=a.board, setup_pairs=a.setup),
+        func=lambda a: hardware.cmd_guide(
+            a.identifier,
+            board=a.board,
+            setup_pairs=a.setup,
+            kind=a.kind,
+        ),
         command="hardware guide",
     )
 
@@ -223,12 +242,38 @@ def _human(command: str, payload: dict) -> None:
         ))
         print(f"主控: {len(data.get('boards') or [])}  激光模板: {len(data.get('templates', {}).get('laser') or [])}  3D 模板: {len(data.get('templates', {}).get('cad') or [])}")
     elif command == "boards":
-        for item in data.get("boards", []):
-            marks = []
-            marks.append("board" if item.get("hasBoardSkill") else "no-board")
-            marks.append("prog" if item.get("programmingSkill") else "no-prog")
-            marks.append("fw" if item.get("firmwareInstalled") else "no-fw")
-            print(f"{item['componentId']:<36} {item['displayName']:<28} {item.get('skillName') or '-':<34} {'/'.join(marks)}")
+        if "boards" in data:
+            for item in data.get("boards", []):
+                marks = []
+                marks.append("board" if item.get("hasBoardSkill") else "no-board")
+                marks.append("prog" if item.get("programmingSkill") else "no-prog")
+                marks.append("fw" if item.get("firmwareInstalled") else "no-fw")
+                print(f"{item['componentId']:<36} {item['displayName']:<28} {item.get('skillName') or '-':<34} {'/'.join(marks)}")
+        elif "instructions" in data:
+            board = data.get("board") or {}
+            package = data.get("package") or {}
+            print(f"{board.get('displayName')} ({board.get('componentId')})  context: {data.get('query')}")
+            print(f"Board Skill: {package.get('id')}  {package.get('version')}  profile={package.get('profileId')}")
+            print(f"instructions: {len(data.get('instructions') or '')} chars")
+            print(f"references: {len(data.get('references') or [])}  templates: {len(data.get('templates') or [])}")
+        else:
+            board = data.get("board") or {}
+            skill = data.get("skill")
+            print(f"{board.get('displayName')} ({board.get('componentId')})")
+            if skill:
+                summary = skill.get("summary") or {}
+                print(f"Board Skill: {summary.get('id')}  layout={skill.get('layout')} verified={skill.get('verified')}")
+                print(f"profile={summary.get('profileId')}  files={len(skill.get('files') or [])}")
+            else:
+                print("Board Skill: 无")
+            entry = data.get("entry")
+            if entry:
+                print(f"entry: {entry.get('path')}  {entry.get('bytes')} bytes")
+            file_item = data.get("file")
+            if file_item:
+                print(f"file: {file_item.get('path')}  {file_item.get('bytes')} bytes")
+            programming = data.get("programmingContext")
+            print(f"programmingContext: {'yes' if programming else 'no'}")
     elif command == "hardware search":
         for item in data.get("results", []):
             marks = []

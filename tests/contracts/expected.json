@@ -7,6 +7,15 @@
     "board": "k10",
     "boardId": "hw_seed_unihiker_k10"
   },
+  "boardSkills": {
+    "strictBoard": "k10",
+    "legacyBoard": "c3",
+    "contextQuery": "屏幕 绘图",
+    "contextProfile": "unihiker-k10",
+    "file": "references/03-screen-api.md",
+    "guideId": "dfrobot-dfr0299-k10",
+    "guideKind": "diagnostic"
+  },
   "dfr0026": {
     "query": "DFR0026",
     "board": "k10",

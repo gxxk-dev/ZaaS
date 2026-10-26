@@ -65,9 +65,10 @@
 ```bash
 zw status --json
 zw boards --json
+zw boards --board B [--full [--file PATH] | --context QUERY] --json
 zw hardware search <关键词> [--board B] [--category C] [--limit N] --json
 zw hardware get <componentId|skillName|显示名> [--full] [--file PATH] --json
-zw hardware guide <componentId> --board B [--set key=value ...] --json
+zw hardware guide <componentId> --board B [--kind functional|diagnostic|reference] [--set key=value ...] --json
 zw hardware validate <board> <componentId...> --json
 zw firmware list [--board B] --json
 zw firmware get <board> --json
@@ -79,7 +80,8 @@ zw enclosure plan --request FILE|- --json
 
 - `status` 额外报告 `zhangwenVersion` 与 `zhangwenReleaseNotes`，来自 `$ZW_HOME/version.json`；读不到版本会给出 warning。当前 ZaaS 已在 `V0.4.2026.1021.01` 上验证。
 - `hardware get` 默认只给文件元数据和指南摘要；`--full` 才内联全部文件正文；`--file` 只取一个文件。
-- `hardware guide` 的 `--set` 只接受该指南 `fields` 中出现的 key 和 value；不接受未知引脚。
+- `hardware guide` 的 `--set` 只接受该指南 `fields` 中出现的 key 和 value；不接受未知引脚。`--kind` 断言指南种类，不匹配时 exit 4 `GUIDE_KIND_MISMATCH`。
+- `boards --full/--file/--context` 必须与 `--board` 同用；`--file` 还需 `--full`，`--context` 与 `--full/--file` 互斥。strict Board Skill 校验和失败 → exit 7 `BOARD_SKILL_INVALID`；legacy 布局 `verified=false`；`--context` 在 legacy/无 Board Skill 时 exit 4 `BOARD_SKILL_CONTEXT_UNAVAILABLE`。
 - `hardware validate` 必须显式列模块；CLI 会自动加入主控 MCU 组件。没有主控时上游只给 WARNING。
 - `firmware list/get` 只读 `resources/firmware/manifest.json` 与上游 `PROFILES`；镜像未提供时仍 exit 0，给 `unavailable` 和 warning。
 - `firmware verify` 只读计算本地文件大小和 SHA-256，与固定镜像比对；不下载、不刷写、不调用 FastAPI 的镜像接口。文件必须是普通文件（拒绝符号链接/目录）。匹配 exit 0，不匹配 exit 4 `FIRMWARE_MISMATCH`，无镜像 exit 4 `FIRMWARE_UNAVAILABLE`。

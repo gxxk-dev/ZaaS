@@ -74,7 +74,9 @@
 - `i2c`：可用时给出地址/总线信息。
 - `verification`：包级状态与该主控是否在 `verifiedBoardIds` 中。
 
-指南不存在时 `zw` 返回 exit 3 并列出该包支持的主控；不要跨主控硬套。
+指南不存在时 `zw` 返回 exit 3 并列出该包支持的主控；不要跨主控硬套。每个资料包对每块主控最多一条指南；`--kind functional|diagnostic|reference` 是断言，种类不符时 exit 4 `GUIDE_KIND_MISMATCH`，不会在多条指南中猜测。
+
+`zw hardware get --full` 已包含 `i2c`、`verifiedBoardIds`、`supportedBoardIds`、`localExamples` 和指南摘要（`boardId/kind/title/summary`）；不再需要额外命令读取这些字段。
 
 ## 选型流程
 
