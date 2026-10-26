@@ -1,14 +1,20 @@
 # 激光切割图纸
 
-`zw laser build` 用掌问的 5 个确定性模板生成 SVG/DXF。输出是**名义尺寸**，不做刀缝补偿、材料弯折或装配验证。
+`zw laser build` 用掌问的 5 个确定性模板生成 SVG/DXF，`zw laser text` 生成单行文字雕刻图纸。输出是**名义尺寸**，不做刀缝补偿、材料弯折或装配验证。
 
 ## 命令
 
 ```bash
 zw laser build --template <id> --params '<JSON>' --out DIR [--force] [--json]
+zw laser text --text "掌问" [--size MM] [--margin MM] [--out DIR] [--force] [--json]
+zw laser templates --json
 ```
 
 `--params` 也可以是 `@file.json`。未知参数直接 exit 2，不会静默忽略。
+
+`laser text` 默认只读；给 `--out` 才写 `cut.svg`、`preview.svg`、`cut.dxf`、`design.json`。字体固定为随包 `NotoSansSC.ttf`，只支持 1–40 个可显示字符，只雕刻、不切穿；`--size` 是实际字高（1–150mm，默认 10），`--margin` 默认 5mm。`--force`/`--allow-in-repo` 只能与 `--out` 同用。
+
+`laser templates` 只读列出 5 个模板的 id、标题、说明、参数默认值和 `patternVersions`。
 
 输出：
 
@@ -81,6 +87,9 @@ zw laser build --template <id> --params '<JSON>' --out DIR [--force] [--json]
 | `slot_rows` | 2 | 1–6 |
 | `top_lid` / `bottom_lid` | true | 布尔值 |
 | `material` | `待确认材料` | ≤80 字 |
+| `pattern_version` | 2 | 1 或 2 |
+
+`pattern_version=1` 仅用于复现旧检查点的排版；新设计用默认 2。两种排版的切缝不同，不能混用产物。
 
 两块圆角盖板 + 四个弯折区的连续围板，四角切缝交错接到上下边缘并保留连接桥；盖板榫与围板凹槽配对。直边至少为板厚的 5 倍。接缝需胶合，弯折与榫接要先试切。
 
@@ -90,8 +99,8 @@ zw laser build --template <id> --params '<JSON>' --out DIR [--force] [--json]
 - 尺寸不能只给一个方向就默认另一方向；缺关键尺寸先问，不要猜。
 - `panel-box` 是胶合对接，`finger-box` 才是榫齿；`rounded-box` 是弯折盒。三者不能混称。
 - 所有输出均为名义路径，`kerf` 固定 0；切割前在加工软件中做刀缝补偿并试切。
-- 文字用随包字体转真实矢量轮廓；不支持换行或文字切穿。
-- 图纸超出画布、路径重复、开放切割折线等会被拒绝（exit 2），不要手工改 `design.json` 绕过。
+- 文字用随包字体转真实矢量轮廓；不支持换行或文字切穿。`laser text` 只做单行雕刻；需要面板文字时用 `finger-box.panelTexts`。
+- 图纸超出画布、路径重复、开放切割折线等会被拒绝（exit 2），不要手工改 `design.json` 绕过。`laser text` 的字体缺字 → exit 4 `TEXT_INVALID`，不猜替代字形。
 - 需要模板以外的任意路径时，v1 不支持直接用 `laser build`；可改用 `structure solid` 做 3D，或明确告知用户当前限制。
 
 ## 典型调用

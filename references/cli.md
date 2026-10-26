@@ -94,6 +94,8 @@ zw enclosure plan --request FILE|- --json
 ```bash
 zw laser build --template <plate|round-tag|panel-box|finger-box|rounded-box> \
   --params '<JSON>' --out DIR [--json]
+zw laser text --text "掌问" [--size MM] [--margin MM] [--out DIR] [--json]
+zw laser templates --json
 
 zw structure template <id> [--edit plan.json] --out DIR [--json]
 zw structure template <id> --list-params --json
@@ -104,6 +106,8 @@ zw enclosure build --spec FILE|-   --out DIR [--json]
 ```
 
 - `--params` 可写内联 JSON 或 `@file.json`。
+- `laser text` 默认只读；`--out` 才写 4 个文件。`--size` 1–150mm，`--margin` ≥0；字体固定为随包 NotoSansSC，文字缺字 exit 4 `TEXT_INVALID`。
+- `laser templates` 只读列出模板、参数默认值和 `patternVersions`；`rounded-box` 支持 `pattern_version=1|2`，默认 2。
 - `--edit` / `--spec` 接受文件路径或 `-`（stdin）。
 - `--out` 默认拒绝非空目录；加 `--force` 才覆盖同名文件。
 - `--out` 位于 `$ZW_HOME` 内时默认拒绝；只有显式 `--allow-in-repo` 才允许。

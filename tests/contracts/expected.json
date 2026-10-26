@@ -40,6 +40,15 @@
     "drawing": {"width": 70.0, "height": 50.0, "thickness": 3.0},
     "files": ["cut.svg", "cut.dxf", "preview.svg", "design.json"]
   },
+  "laserText": {
+    "text": "掌问",
+    "size": 10,
+    "margin": 5,
+    "files": ["cut.svg", "cut.dxf", "preview.svg", "design.json"]
+  },
+  "laserRounded": {
+    "params": {"width": 50, "depth": 50, "height": 50, "thickness": 3, "corner_radius": 12}
+  },
   "enclosure": {
     "boxRequest": {
       "design_id": "contract_box",

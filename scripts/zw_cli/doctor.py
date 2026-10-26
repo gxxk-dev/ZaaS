@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 
-from . import env, index
+from . import env, index, laser as laser_cli
 from .envelope import CommandResult
 
 
@@ -131,7 +131,7 @@ def cmd_status() -> CommandResult:
         "deps": deps,
         "font": {"path": str(font), "exists": font.is_file()},
         "templates": {
-            "laser": ["plate", "round-tag", "panel-box", "finger-box", "rounded-box"],
+            "laser": list(laser_cli.LASER_TEMPLATES),
             "cad": cad_templates,
         },
         "boards": [

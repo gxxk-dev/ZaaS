@@ -9,7 +9,7 @@ import sys
 import traceback
 
 from . import boards as boards_cli
-from . import code, doctor, env, firmware, hardware
+from . import code, doctor, env, firmware, hardware, laser as laser_cli
 from .envelope import CommandResult, ZwError, failure, ok, print_json
 
 
@@ -134,6 +134,28 @@ def _parser() -> argparse.ArgumentParser:
     build.add_argument("--force", action="store_true")
     build.add_argument("--allow-in-repo", action="store_true")
     build.set_defaults(func=_laser_build, command="laser build")
+
+    laser_templates = laser_sub.add_parser("templates", parents=[common], help="列出激光模板与参数")
+    laser_templates.set_defaults(func=lambda a: laser_cli.cmd_templates(), command="laser templates")
+
+    laser_text = laser_sub.add_parser("text", parents=[common], help="生成文字雕刻图纸")
+    laser_text.add_argument("--text", required=True)
+    laser_text.add_argument("--size", type=float, default=10, help="文字实际高度，毫米")
+    laser_text.add_argument("--margin", type=float, default=5, help="四周留白，毫米")
+    laser_text.add_argument("--out")
+    laser_text.add_argument("--force", action="store_true")
+    laser_text.add_argument("--allow-in-repo", action="store_true")
+    laser_text.set_defaults(
+        func=lambda a: laser_cli.cmd_text(
+            a.text,
+            size=a.size,
+            margin=a.margin,
+            out_value=a.out,
+            force=a.force,
+            allow_in_repo=a.allow_in_repo,
+        ),
+        command="laser text",
+    )
 
     structure = groups.add_parser("structure", help="Python CAD")
     structure_sub = structure.add_subparsers(dest="structure_command", required=True)
@@ -349,6 +371,19 @@ def _human(command: str, payload: dict) -> None:
             print(f"  remaining [{item.get('severity')}] {item.get('repair') or 'programming'}{line}: {item.get('message')}")
         if data.get("out"):
             print(f"输出: {data.get('out')}")
+    elif command == "laser templates":
+        print(f"激光模板 {data.get('count', 0)} 个")
+        for item in data.get("templates", []):
+            params = ", ".join(
+                f"{param.get('name')}={param.get('default')}" for param in item.get("parameters") or []
+            )
+            print(f"  {item.get('id'):<14} {item.get('title')}  [{params}]")
+    elif command == "laser text":
+        canvas = data.get("canvas") or {}
+        print(f"{data.get('title')}  textWidth={data.get('textWidth')}mm")
+        print(f"画布: {canvas.get('width')} × {canvas.get('height')} mm")
+        for key, path in (data.get("exports") or {}).items():
+            print(f"  {key}: {path}")
     elif command == "structure template" and "parameters" in data:
         template = data.get("template", {})
         print(f"{template.get('title')} ({template.get('id')})")

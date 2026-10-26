@@ -495,6 +495,71 @@ def main() -> int:
             fail("laser 负例创建了输出目录")
         print("ok laser negative")
 
+        text = EXPECTED["laserText"]
+        code, payload = run("laser", "text", "--text", text["text"])
+        data = expect_ok("laser text", payload)
+        if code != 0 or not payload.get("readOnly") or payload.get("writes"):
+            fail(f"laser text 默认不是只读：exit={code} writes={payload.get('writes')}")
+        if float(data.get("textWidth") or 0) <= 0 or (data.get("drawing") or {}).get("shapes") != 1:
+            fail(f"laser text 图纸不符：{data}")
+        text_out = tmp_dir / "laser-text"
+        code, payload = run(
+            "laser", "text", "--text", text["text"], "--out", str(text_out),
+        )
+        data = expect_ok("laser text out", payload)
+        if code != 0 or payload.get("readOnly"):
+            fail(f"laser text --out 不是写入：exit={code}")
+        for name in text["files"]:
+            if not (text_out / name).is_file():
+                fail(f"laser text 缺少 {name}")
+        design = json.loads((text_out / "design.json").read_text(encoding="utf-8"))
+        if design.get("template") != "text" or design["params"].get("size") != text["size"]:
+            fail(f"laser text design.json 不符：{design.get('template')}")
+        print("ok laser text")
+
+        code, payload = run("laser", "text", "--text", "")
+        if code != 4 or _error_code(payload) != "TEXT_INVALID":
+            fail(f"laser text 空文字负例不符：exit={code} code={_error_code(payload)}")
+        print("ok laser text negative")
+
+        rounded = EXPECTED["laserRounded"]
+        v1_out = tmp_dir / "laser-rounded-v1"
+        v1_params = {**rounded["params"], "pattern_version": 1}
+        code, payload = run(
+            "laser", "build", "--template", "rounded-box",
+            "--params", json.dumps(v1_params), "--out", str(v1_out),
+        )
+        expect_ok("laser rounded v1", payload)
+        if code != 0:
+            fail(f"laser rounded v1 exit={code}")
+        v1_design = json.loads((v1_out / "design.json").read_text(encoding="utf-8"))
+        if v1_design["params"].get("pattern_version") != 1:
+            fail(f"laser rounded v1 参数不符：{v1_design['params']}")
+        v2_out = tmp_dir / "laser-rounded-v2"
+        v2_params = {**rounded["params"], "pattern_version": 2}
+        code, payload = run(
+            "laser", "build", "--template", "rounded-box",
+            "--params", json.dumps(v2_params), "--out", str(v2_out),
+        )
+        expect_ok("laser rounded v2", payload)
+        if code != 0:
+            fail(f"laser rounded v2 exit={code}")
+        if (v1_out / "cut.svg").read_bytes() == (v2_out / "cut.svg").read_bytes():
+            fail("rounded-box v1 与 v2 输出相同")
+        print("ok laser rounded v1")
+
+        code, payload = run("laser", "templates")
+        data = expect_ok("laser templates", payload)
+        templates = {item.get("id"): item for item in data.get("templates") or []}
+        if code != 0 or data.get("count") != 5:
+            fail(f"laser templates count={data.get('count')} exit={code}")
+        if templates.get("rounded-box", {}).get("patternVersions") != [1, 2]:
+            fail("laser templates 缺少 rounded-box patternVersions")
+        if not any(item.get("name") == "pattern_version" for item in templates.get("rounded-box", {}).get("parameters") or []):
+            fail("laser templates 缺少 pattern_version")
+        print("ok laser templates")
+
+
     _check_enclosure(EXPECTED["enclosure"])
 
     print("all contract checks passed")
