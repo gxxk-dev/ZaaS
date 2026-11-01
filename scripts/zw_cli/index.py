@@ -143,14 +143,19 @@ def board_records() -> list[dict]:
         profile = definition["profile"]
         board_paths = []
         if profile:
+            resource_skill = package["skillName"] if package else profile
             board_paths = [
+                # Upstream keeps K10/XIAO as strict packages here (CHECKSUMS.sha256).
                 root / "services" / "local-api" / "zhangwen" / "hardware" / "board-skills" / profile / "SKILL.md",
+                # Upstream 1026+ moved legacy board skills into resources/hardware-skills.
+                root / "resources" / "hardware-skills" / resource_skill / "SKILL.md",
+                # Older installs kept legacy board skills under the web service.
                 root / "services" / "local-api" / "zhangwen" / "web" / "board-skills" / profile / "SKILL.md",
             ]
         board_skill = next((str(path) for path in board_paths if path.is_file()), None)
         programming = None
         if definition["programming"]:
-            path = root / "services" / "local-api" / "zhangwen" / "web" / "programming-skills" / definition["programming"] / "SKILL.md"
+            path = root / "resources" / "hardware-skills" / definition["programming"] / "programming" / "SKILL.md"
             if path.is_file():
                 programming = {"name": definition["programming"], "path": str(path)}
         firmware_item = firmware.get(component_id)

@@ -16,7 +16,7 @@ BOARD_DEFS = [
     {
         "componentId": "hw_seed_unihiker_k10",
         "profile": "unihiker-k10",
-        "programming": "unihiker-k10",
+        "programming": "k10",
         "aliases": [
             "k10",
             "行空板k10",
@@ -52,7 +52,7 @@ BOARD_DEFS = [
     {
         "componentId": "hw_labplus_mpython_v2",
         "profile": "labplus-mpython-v2",
-        "programming": "mpython-v2",
+        "programming": "labplus-mpython-v2",
         "aliases": [
             "mpython",
             "mpython2",
@@ -65,7 +65,7 @@ BOARD_DEFS = [
     {
         "componentId": "hw_labplus_mpython_esp32s3_v3",
         "profile": None,
-        "programming": "mpython-v3",
+        "programming": "labplus-mpython-esp32s3-v3",
         "aliases": [
             "mpython3",
             "mpython v3",

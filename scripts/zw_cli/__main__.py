@@ -167,7 +167,7 @@ def _parser() -> argparse.ArgumentParser:
         func=_structure_templates, command="structure templates"
     )
     structure_library = structure_sub.add_parser(
-        "library", parents=[common], help="legacy 几何资料库（只读）"
+        "library", parents=[common], help="legacy 结构资料（只读）"
     )
     structure_library.add_argument("profile_id", nargs="?")
     structure_library.add_argument("--category", help="按 category 精确匹配，不区分大小写")

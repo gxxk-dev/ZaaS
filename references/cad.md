@@ -12,20 +12,20 @@ zw structure templates --json
 
 只读列出 8 个模板：5 个打包固定模板（`source: "packaged"`）和 3 个 design-spec 模板（`source: "design-spec"`）。每项包含 `id/title/description/revision/size/notes/parts/parameters/image/sha256/assets`。`parameters[].default` 是模板默认值；打包模板的参数名与 `--list-params` 一致。该命令不需要 CadQuery。
 
-## legacy 几何资料库（只读）
+## legacy 结构资料库（只读）
 
 ```bash
 zw structure library [--category C] [--query Q] --json
 zw structure library <profile_id> --json
 ```
 
-直接读取 `$ZW_HOME/services/structure-cad/server/data/hardware-library.json`。这是 structure-cad 服务侧的旧 Node 资料，**不是** `cad_engine` 的 `HardwareProfile`，`enclosure` 不会读取它。
+从 `$ZW_HOME/resources/hardware-resources.json` 的 `structure` 块读取索引，再按 `profiles[].path` 读取 `resources/structure-parts/<profileId>/profile.json` 或 `resources/hardware-skills/<skillName>/structure/profile.json`。这些是拆分后的 legacy 结构资料（snake_case 字段），**不是** `cad_engine` 的 `HardwareProfile`，`enclosure` 不会读取它。
 
 - 列表返回 `count/profiles/source`，每项保留原始 snake_case 字段：`id/name/category/roles/dimensions_mm/thumbnail_url/source_status/integration_status`。
 - `dimensions_mm` 原样输出；不同类别的键不同，不能假设一定有 `length_x/width_y/height_z`。
-- 单条返回完整原始 profile、`library: {version, units, coordinateSystem, migration}` 和 `source: "legacy-hardware-library"`。
+- 单条返回完整原始 profile、`library: {version, units, coordinateSystem, migration}` 和 `source: "legacy-hardware-library"`（该值保持不变，表示 legacy 字段沿革；数据已改从 `resources/` 拆分读取）。
 - `--category` 精确匹配 `category`（不区分大小写）；`--query` 对 `id`/`name` 做不区分大小写的子串匹配。两者可同用；与 `<profile_id>` 互斥，同用 exit 2 `REQUEST_INVALID`。
-- 文件缺失 exit 5 `LIBRARY_MISSING`；JSON/schema 损坏或 profile id 重复 exit 7 `LIBRARY_INVALID`；id 不存在 exit 3 `PROFILE_NOT_FOUND`；过滤无匹配 exit 0、`count: 0` + warning。
+- 缺 `resources/hardware-resources.json` exit 5 `LIBRARY_MISSING`；索引/profile JSON/schema 损坏、路径越出 `resources/`、符号链接或 profile id 重复 exit 7 `LIBRARY_INVALID`；id 不存在 exit 3 `PROFILE_NOT_FOUND`；过滤无匹配 exit 0、`count: 0` + warning。
 - 每次响应都带 warning：legacy 只读、未经 `HardwareProfile` 校验、同名 id 以 `zw enclosure profiles` 为准。资料条数以本机安装为准，不写死 32。
 
 ## 固定模板

@@ -4,11 +4,11 @@
 
 | 显示名 | componentId | 硬件包 skillName | Board Skill | 编程参考 | 固件 |
 |---|---|---|---|---|---|
-| 行空板 K10 | `hw_seed_unihiker_k10` | `k10` | `unihiker-k10` | `unihiker-k10` | `k10-download.bin`，V0.9.8，offset 0 |
+| 行空板 K10 | `hw_seed_unihiker_k10` | `k10` | `unihiker-k10` | `k10` | `k10-download.bin`，V0.9.8，offset 0 |
 | XIAO ESP32S3 Sense | `hw_seeed_xiao_esp32s3_sense` | `seeed-studio-xiao-esp32s3-sense` | `xiao-esp32s3-sense` | 无 | `xiao-s3.bin`，MicroPython v1.29.0，offset 0 |
 | ESP32-C3 通用 | `hw_esp32_generic_c3` | `esp32-generic-c3` | `esp32-generic-c3` | 无 | `esp32-c3.bin`，MicroPython v1.29.0，offset 0 |
-| 掌控板 2.0 | `hw_labplus_mpython_v2` | `labplus-mpython-v2` | `labplus-mpython-v2` | `mpython-v2` | `mpython2.bin`，mPython v2.6.0，offset 0 |
-| 掌控板 3.0 | `hw_labplus_mpython_esp32s3_v3` | `labplus-mpython-esp32s3-v3` | 无 | `mpython-v3` | `mpython3.bin`，offset 0（镜像以 `resources/firmware/manifest.json` 为准） |
+| 掌控板 2.0 | `hw_labplus_mpython_v2` | `labplus-mpython-v2` | `labplus-mpython-v2` | `labplus-mpython-v2` | `mpython2.bin`，mPython v2.6.0，offset 0 |
+| 掌控板 3.0 | `hw_labplus_mpython_esp32s3_v3` | `labplus-mpython-esp32s3-v3` | 无 | `labplus-mpython-esp32s3-v3` | `mpython3.bin`，offset 0（镜像以 `resources/firmware/manifest.json` 为准） |
 
 固件镜像都在 `$ZW_HOME/resources/firmware/`，本地存在时 `zw boards` 会标 `firmwareInstalled=true`。镜像的 `sha256`、大小和来源 URL 以 `resources/firmware/manifest.json` 为准。`zw firmware list/get` 只读展示元数据；`zw firmware verify` 只读比对本地文件的大小和 SHA-256，不下载、不刷写。
 
@@ -21,10 +21,10 @@ zw boards --board k10 --context "屏幕 绘图" --json
 ```
 
 - `--full` 读取该主控的 Board Skill 包：`skill.layout` 为 `strict` 或 `legacy`，`files` 是 `{path,size,sha256}` 列表，`manifest` 原样返回，`entry` 是 `SKILL.md`（上限 16 000 字符）。
-- strict 布局（K10、XIAO）有 `CHECKSUMS.sha256`，`verified=true`；legacy 布局（C3、掌控板 2.0）没有校验和，只能按 manifest 清单重算摘要，`verified=false` + warning。不要把 legacy 说成已校验。
+- strict 布局（K10、XIAO）位于 `services/local-api/zhangwen/hardware/board-skills/`，有 `CHECKSUMS.sha256`，`verified=true`；legacy 布局（C3、掌控板 2.0）位于 `resources/hardware-skills/<skillName>/`，没有校验和，只能按 manifest 清单重算摘要，`verified=false` + warning。不要把 legacy 说成已校验。
 - `--file` 只能读取 manifest 声明的路径，必须与 `--full` 同用；非 UTF-8 或超过 200 000 字符 → exit 4 `FILE_INVALID`。
 - `--context QUERY` 只支持 strict 布局，按查询返回 `instructions/references/templates/generationContract/policy`；legacy 或无 Board Skill → exit 4 `BOARD_SKILL_CONTEXT_UNAVAILABLE`。
-- `programmingContext` 是板级编程参考；XIAO/C3 为空，掌控板 3.0 没有 Board Skill 但仍有编程参考，均以 `null` + warning 降级。
+- `programmingContext` 是板级编程参考，来自 `resources/hardware-skills/<skillName>/programming/`；XIAO/C3 为空，掌控板 3.0 没有 Board Skill 但仍有编程参考，均以 `null` + warning 降级。
 
 ## 常用别名
 
@@ -67,7 +67,7 @@ zw boards --board k10 --context "屏幕 绘图" --json
 ### 掌控板 3.0（ESP32-S3，彩色屏）
 
 - 使用 `mpython.display` 和 `lcd` 颜色对象；**不要**照搬 2.0 的 `oled`/单色流程。
-- 没有 Board Skill，只有 `programming-skills/mpython-v3`；不要因 2.0 有实测记录就宣称 3.0 已验收。
+- 没有 Board Skill，只有 `resources/hardware-skills/labplus-mpython-esp32s3-v3/programming/` 编程参考；不要因 2.0 有实测记录就宣称 3.0 已验收。
 - 外接端口以当前硬件资料为准；未知签名先问或让用户在 REPL 中确认。
 
 ## 验证语义

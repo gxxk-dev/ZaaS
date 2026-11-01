@@ -69,7 +69,7 @@ p0 = MPythonPin(0, PinMode.IN)   # 板上 P0 = GPIO33
 
 ### 掌控板 3.0
 
-使用 `mpython.display` / `lcd` 彩屏接口；不要照搬 2.0 的 `oled` 单色流程。没有 Board Skill，API 细节以 `programming-skills/mpython-v3` 与 `hardware guide` 为准。
+使用 `mpython.display` / `lcd` 彩屏接口；不要照搬 2.0 的 `oled` 单色流程。没有 Board Skill，API 细节以 `resources/hardware-skills/labplus-mpython-esp32s3-v3/programming/` 与 `hardware guide` 为准。
 
 ### XIAO ESP32S3 Sense / ESP32-C3
 

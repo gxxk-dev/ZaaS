@@ -83,17 +83,17 @@ zw enclosure plan --request FILE|- --json
 zw structure freeform plan --request FILE|- --json
 ```
 
-- `status` 额外报告 `zhangwenVersion` 与 `zhangwenReleaseNotes`，来自 `$ZW_HOME/version.json`；读不到版本会给出 warning。当前 ZaaS 已在 `V0.4.2026.1021.01` 上验证。
+- `status` 额外报告 `zhangwenVersion` 与 `zhangwenReleaseNotes`，来自 `$ZW_HOME/version.json`；读不到版本会给出 warning。当前 ZaaS 已在 `V0.4.2026.1026.01` 上验证。
 - `hardware get` 默认只给文件元数据和指南摘要；`--full` 才内联全部文件正文；`--file` 只取一个文件。
 - `hardware guide` 的 `--set` 只接受该指南 `fields` 中出现的 key 和 value；不接受未知引脚。`--kind` 断言指南种类，不匹配时 exit 4 `GUIDE_KIND_MISMATCH`。
-- `boards --full/--file/--context` 必须与 `--board` 同用；`--file` 还需 `--full`，`--context` 与 `--full/--file` 互斥。strict Board Skill 校验和失败 → exit 7 `BOARD_SKILL_INVALID`；legacy 布局 `verified=false`；`--context` 在 legacy/无 Board Skill 时 exit 4 `BOARD_SKILL_CONTEXT_UNAVAILABLE`。
+- `boards --full/--file/--context` 必须与 `--board` 同用；`--file` 还需 `--full`，`--context` 与 `--full/--file` 互斥。strict Board Skill（K10/XIAO，位于 `services/local-api/zhangwen/hardware/board-skills/`）校验和失败 → exit 7 `BOARD_SKILL_INVALID`；legacy 布局（C3/掌控板 2.0，位于 `resources/hardware-skills/<skillName>/`）`verified=false`；`--context` 在 legacy/无 Board Skill 时 exit 4 `BOARD_SKILL_CONTEXT_UNAVAILABLE`。
 - `hardware validate` 必须显式列模块；CLI 会自动加入主控 MCU 组件。没有主控时上游只给 WARNING。
 - `firmware list/get` 只读 `resources/firmware/manifest.json` 与上游 `PROFILES`；镜像未提供时仍 exit 0，给 `unavailable` 和 warning。
 - `firmware verify` 只读计算本地文件大小和 SHA-256，与固定镜像比对；不下载、不刷写、不调用 FastAPI 的镜像接口。文件必须是普通文件（拒绝符号链接/目录）。匹配 exit 0，不匹配 exit 4 `FIRMWARE_MISMATCH`，无镜像 exit 4 `FIRMWARE_UNAVAILABLE`。
 - `code check --component` 额外做电气规则校验；省略时只做语法和板级 API 检查。
 - `code fix` 是只读预览式修复；只有显式 `--out FILE` 才写一个**不存在**的新文件，目标已存在或位于 `$ZW_HOME` 内 → exit 6。exit 0 不表示诊断清零或已实测。
-- `structure templates` 只读列出 5 个打包模板与 `box/cup/bracket` 三个 design-spec 模板；不需要 CadQuery。`structure library` 只读暴露 `services/structure-cad/server/data/hardware-library.json` 的 legacy 资料，不是 `HardwareProfile`，`enclosure` 不读取。`enclosure profiles` 只读列出 5 个 trusted profile 与资料包 mechanical profile；不读取 legacy 几何资料库。三者都走 core 依赖。
-- `structure library` 的 `<profile_id>` 与 `--category/--query` 互斥；缺文件 exit 5 `LIBRARY_MISSING`，损坏 exit 7 `LIBRARY_INVALID`，id 不存在 exit 3 `PROFILE_NOT_FOUND`，过滤无匹配 exit 0 + warning。
+- `structure templates` 只读列出 5 个打包模板与 `box/cup/bracket` 三个 design-spec 模板；不需要 CadQuery。`structure library` 只读暴露 `resources/hardware-resources.json` 的 `structure` 块与各 `profile.json` 的 legacy 资料（`resources/structure-parts/` 或 `resources/hardware-skills/<skillName>/structure/`），不是 `HardwareProfile`，`enclosure` 不读取。`enclosure profiles` 只读列出 5 个 trusted profile 与资料包 mechanical profile；不读取 legacy 结构资料。三者都走 core 依赖。
+- `structure library` 的 `<profile_id>` 与 `--category/--query` 互斥；缺索引 exit 5 `LIBRARY_MISSING`，索引/profile 损坏、路径越界或 id 重复 exit 7 `LIBRARY_INVALID`，id 不存在 exit 3 `PROFILE_NOT_FOUND`，过滤无匹配 exit 0 + warning。
 - `enclosure plan` 只读、无 CadQuery 依赖；缺机械数据时 exit 4 `NEEDS_INPUT`，见 `enclosure.md`。
 - `structure freeform plan` 只读、无 CadQuery 依赖，校验 `zw.freeform-request/v1` 请求、布局和设计规则，以及文字字段/字体覆盖；连通性、切割相交和文字体积变化仍需 `build`。见 `freeform.md`。
 - `structure freeform` 的文字操作 `shape:"text"` 支持 `cut`/`add`，`font_size` 2–80、`depth` 0.1–10、文字 1–20 字；文字在所有几何操作之后应用。文字无效 exit 4 `TEXT_INVALID`，文字无体积变化 exit 4 `TEXT_NO_EFFECT`。

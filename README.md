@@ -19,9 +19,9 @@ export ZW_HOME=/mnt/dev-cold/zhangwen
 ~/ZaaS/scripts/zw status --json
 ```
 
-`ZW_HOME` 必须包含 `services/local-api/zhangwen/` 和 `.data/hardware-skills/`。没有 `.venv` 时，启动器会用 `uv run --no-project --python 3.13 --with-requirements ...` 建临时环境；CAD 命令需要 CadQuery/OCP。
+`ZW_HOME` 必须包含 `services/local-api/zhangwen/`、`resources/`（含 `hardware-resources.json`）和 `.data/hardware-skills/`。没有 `.venv` 时，启动器会用 `uv run --no-project --python 3.13 --with-requirements ...` 建临时环境；CAD 命令需要 CadQuery/OCP。
 
-当前已在掌问 **V0.4.2026.1021.01**（`2e75546`）上验证。`zw status` 会读取 `$ZW_HOME/version.json` 报告 `zhangwenVersion` 和 release notes；上游升级后先跑 `zw status --json`，再跑 `python3 -m pytest` 检查契约。
+当前已在掌问 **V0.4.2026.1026.01**（`297a2c9`）上验证。`zw status` 会读取 `$ZW_HOME/version.json` 报告 `zhangwenVersion` 和 release notes；上游升级后先跑 `zw status --json`，再跑 `python3 -m pytest` 检查契约。
 
 ## 依赖
 
@@ -82,7 +82,7 @@ zw enclosure build --spec FILE|-   --out DIR --json
 - 只读掌问数据；除 `--out` 外不写盘。
 - 不启动 FastAPI、不调用模型 API、不刷新目录缓存、不迁移 SQLite。
 - 固件命令只读元数据并做本地文件大小/SHA-256 校验；不下载、不刷写。
-- `structure library` 是 structure-cad 的 legacy 只读资料，不是 `HardwareProfile`，`enclosure` 不读取。
+- `structure library` 是 `resources/hardware-resources.json` 的 `structure` 资料（legacy snake_case 字段，只读），不是 `HardwareProfile`，`enclosure` 不读取。
 - v1 不调用 Node 自动外壳管线；外壳与 freeform 由 Python 的 `zhangwen.cad_engine` 确定性生成。
 - `enclosure` 缺机械数据时返回 `NEEDS_INPUT` 提问，不猜尺寸；`enclosure build`/`structure freeform build` 的 `--out` 必须为空或不存在，没有 `--force`。
 - freeform 的 `plan` 不需要 CadQuery；`build` 需要。文字刻字固定使用随包字体，文字无效或布尔无体积变化会明确报错。

@@ -77,7 +77,7 @@ zw laser text --text "掌问" --size 10 [--out ./text-out] --json
 ### 4. 3D
 
 ```bash
-# 模板目录（打包模板 + box/cup/bracket）与 legacy 几何资料
+# 模板目录（打包模板 + box/cup/bracket）与 legacy 结构资料
 zw structure templates --json
 zw structure library [--category C] [--query Q] --json
 
@@ -99,7 +99,7 @@ zw structure freeform plan --request freeform.json --json
 zw structure freeform build --request freeform.json --out ./freeform-out --json
 ```
 
-`--edit` 的 `TemplateEditSpec` 只允许改 `--list-params` 中的顶层数值 + 对 printable 部件做受控布尔/刻字。模型不生成 Python，CLI 不执行模型文本。坐标是原模板装配坐标；刻字深度必须小于板厚。`structure solid` 走 `DesignSpec`（box/cylinder/sphere）；需要 `rounded_box`、`rotation_z_deg`、`role` 或文字刻字时用 `structure freeform`（见 `references/freeform.md`）。`structure library` 是 structure-cad 的 legacy 只读资料，不是 `HardwareProfile`，`enclosure` 不读取。
+`--edit` 的 `TemplateEditSpec` 只允许改 `--list-params` 中的顶层数值 + 对 printable 部件做受控布尔/刻字。模型不生成 Python，CLI 不执行模型文本。坐标是原模板装配坐标；刻字深度必须小于板厚。`structure solid` 走 `DesignSpec`（box/cylinder/sphere）；需要 `rounded_box`、`rotation_z_deg`、`role` 或文字刻字时用 `structure freeform`（见 `references/freeform.md`）。`structure library` 是 `resources/hardware-resources.json` 的 `structure` 资料（legacy snake_case 字段，只读），不是 `HardwareProfile`，`enclosure` 不读取。
 
 ### 5. 自动外壳（`enclosure`）
 
@@ -132,7 +132,7 @@ zw hardware guide <componentId> --board k10 --kind diagnostic --json
 ```
 
 - `firmware list/get` 只读元数据；`verify` 只比对本地文件大小和 SHA-256，不下载、不刷写。exit 0 只表示文件与固定镜像一致，不代表设备可启动。
-- `boards --full` 区分 strict/legacy Board Skill；legacy 只读回退标 `verified:false`，不能表述为已校验。`--context` 只支持 strict 布局，legacy/无 Board Skill exit 4。
+- `boards --full` 区分 strict/legacy Board Skill：K10/XIAO 的 strict 包在 `services/local-api/zhangwen/hardware/board-skills/`，有 `CHECKSUMS.sha256`（`verified:true`）；C3/掌控板 2.0 的 legacy 包在 `resources/hardware-skills/<skillName>/`，没有校验和（`verified:false` + warning），不能表述为已校验。`--context` 只支持 strict 布局，legacy/无 Board Skill exit 4。
 - `hardware guide --kind` 是断言，不匹配 exit 4 `GUIDE_KIND_MISMATCH`；接线与示例仍以指南内容为准。
 
 ## 硬规则
@@ -142,14 +142,14 @@ zw hardware guide <componentId> --board k10 --kind diagnostic --json
 3. 电气结论只来自 `zw hardware validate`，不让模型心算电流预算。
 4. 掌控板 2.0：板上 P0=GPIO33、P1=GPIO32，不能用 `machine.Pin(0/1)` 代替；显示用 `mpython.oled`。
 5. 行空板 K10：屏幕只用 `unihiker_k10.screen` 的 `init(dir=2)` → `draw_text` → `show_draw()` 流程；禁止 `screen.text()`、`framebuf`、M10 `pinpong`。
-6. 掌控板 3.0：用 `mpython.display`/`lcd` 彩屏接口，不照搬 2.0 的 `oled`；没有 Board Skill，API 未确认时标“待确认”。
+6. 掌控板 3.0：用 `mpython.display`/`lcd` 彩屏接口，不照搬 2.0 的 `oled`；没有 Board Skill，只有 `resources/hardware-skills/labplus-mpython-esp32s3-v3/programming/` 编程参考，API 未确认时标“待确认”。
 7. 生成的代码不硬编码 Wi-Fi 密码/Token/API Key；用占位符并提示用户填写。
 8. 激光/CAD/外壳/freeform 产物必须声明“名义尺寸，未做刀缝补偿/打印公差/实物装配验证”。
 9. 改固定模板优先 `--edit`，保留原模板孔位与装配关系；不要用 `structure solid` 重画来绕过不可改的参数。
 10. 只写 `--out`；默认拒绝非空目录，拒绝写入 `$ZW_HOME`（除非用户明确 `--allow-in-repo`）。绝不刷新掌问缓存、迁移数据或调用任何 `install_*`/`update_*`/`save_*`。`code fix --out` 只写不存在的新文件。
 11. `enclosure` 缺机械数据时只提问（`NEEDS_INPUT`），不把电气参数当机械尺寸，不猜孔位/厚度。`derive_mount` 是包装层推断，必须转述“待实物验证”。
 12. `enclosure build` 与 `structure freeform build` 的 `--out` 必须为空或不存在；没有 `--force`，不要改成覆盖模式。
-13. `structure library` 是 legacy 只读资料，不是 `HardwareProfile`，`enclosure` 不读取；同名 id 的 enclosure 解析以 `enclosure profiles` 为准。
+13. `structure library` 是 `resources/hardware-resources.json` 的 legacy 结构资料（只读），不是 `HardwareProfile`，`enclosure` 不读取；同名 id 的 enclosure 解析以 `enclosure profiles` 为准。
 14. `firmware verify` 只做本地文件校验；不下载、不刷写。刷机仍由 `pyrcli` 执行，且需用户明确同意。
 
 ## 与 handpy / pyrcli 的分工
